@@ -3,10 +3,14 @@ import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 interface ModalProps {
+  /** 是否展开。 */
   open: boolean
+  /** 标题栏文字。 */
   title: string
+  /** 点遮罩或 Esc 时关闭。 */
   onClose: () => void
   children: ReactNode
+  /** 底部按钮区。 */
   footer?: ReactNode
   /** 窄一点用于确认框。 */
   narrow?: boolean

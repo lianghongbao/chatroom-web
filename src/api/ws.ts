@@ -1,8 +1,8 @@
 /**
  * WS 网关客户端 —— 端口 8004。
  *
- * 握手：GET /ws?token=<JWT>。浏览器 WS 不能自定义 header，所以 token 走 query。
- * 帧格式：{"type": "...", ...}，下行统一是 {"type": "...", "data": {...}}。
+ * 握手是 GET /ws?token=<JWT>，浏览器 WS 不能自定义 header 所以 token 走 query。
+ * 上行帧是 {"type": "...", ...}，下行帧统一是 {"type": "...", "data": {...}}。
  */
 
 import { getAccessToken } from './client'
@@ -49,7 +49,7 @@ export interface PresenceData {
   members: Record<string, boolean>
 }
 
-/** 断线重连补消息的结果。 */
+/** resume_result 帧载荷。has_more 为 true 时还要继续发 resume 补下一批。 */
 export interface ResumeData {
   conversation_id: number
   count: number
@@ -57,7 +57,7 @@ export interface ResumeData {
   has_more: boolean
 }
 
-/** 下行帧。 */
+/** 下行帧。data 的形状随 type 变化。 */
 export interface ServerFrame {
   type: ServerFrameType
   data?: unknown
@@ -104,7 +104,7 @@ export class WsClient {
     return () => this.handlers.delete(handler)
   }
 
-  /** 订阅连接状态变化。 */
+  /** 订阅连接状态变化。返回取消订阅函数。 */
   onStatus(handler: StatusHandler): () => void {
     this.statusHandlers.add(handler)
     return () => this.statusHandlers.delete(handler)
@@ -115,7 +115,7 @@ export class WsClient {
     for (const h of this.statusHandlers) h(status)
   }
 
-  /** 连上（已连接则直接返回）。 */
+  /** 建立连接。已连接或连接中则直接返回；没有 token 则不发。 */
   connect(): void {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return
@@ -243,12 +243,12 @@ export class WsClient {
     })
   }
 
-  /** 查会话成员的在线状态。 */
+  /** 问网关查会话成员的在线状态。 */
   queryConversationStatus(conversationId: number): boolean {
     return this.sendRaw({ type: 'status', conversation_id: conversationId })
   }
 
-  /** 发 resume 帧 —— 断线重连后补消息。 */
+  /** 发 resume 帧补消息。lastMessageId 是断线前最后一条消息的 id。 */
   sendResume(conversationId: number, lastMessageId: number): boolean {
     return this.sendRaw({
       type: 'resume',

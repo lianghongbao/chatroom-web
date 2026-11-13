@@ -93,7 +93,7 @@ export default function App() {
     setActiveId(conversation.id)
   }
 
-  /** 从好友页发起单聊 —— 先建会话再切过去。 */
+  /** 从好友页发起单聊 —— 先建会话再切过去。friend 是要聊的好友。 */
   const handleStartChatWithFriend = async (friend: FriendInfo) => {
     try {
       const res = await createConversation({

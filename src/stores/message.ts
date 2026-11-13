@@ -16,16 +16,21 @@ interface MessageState {
   /** 发送中的消息（乐观气泡）。 */
   pending: Record<number, MessageInfo[]>
 
+  /** 拉第一页历史消息。 */
   load: (conversationId: number) => Promise<void>
+  /** 按游标拉更早的历史消息。 */
   loadMore: (conversationId: number) => Promise<void>
   /** WS 推来一条新消息。 */
   receive: (data: MessageData) => void
+  /** 加一条乐观气泡，message.id 用负数当临时 id。 */
   addPending: (conversationId: number, message: MessageInfo) => void
+  /** 撤掉一条乐观气泡。 */
   removePending: (conversationId: number, messageId: number) => void
   /** ack 到了 —— 把乐观气泡换成真消息。 */
   settleAck: (conversationId: number, messageId: number, createdAt: number) => void
   /** HTTP 兜底路径 —— 响应里直接带落库后的消息。 */
   confirm: (conversationId: number, messageId: number, confirmed: MessageInfo) => void
+  /** 清空整个 store。 */
   reset: () => void
 }
 
@@ -136,7 +141,6 @@ export const useMessageStore = create<MessageState>((set, get) => ({
    *
    * 网关广播排除发送方，自己发的消息收不到 message 帧，
    * 所以「谁发的」得靠乐观气泡自己记着 —— ack 里没有 sender_id。
-   *
    * 取最老的那条乐观气泡：网关按连接顺序处理 chat 帧，ack 也按发送顺序回来，
    * 所以先到的 ack 对应先发的那条。
    */
@@ -177,7 +181,7 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   /**
    * HTTP 兜底路径：响应里直接带落库后的消息，直接替换乐观气泡。
    *
-   * messageId 是乐观气泡的临时 id（负数）。
+   * messageId 是乐观气泡的临时 id（负数），confirmed 是落库后的消息。
    */
   confirm(conversationId, messageId, confirmed) {
     set((s) => {

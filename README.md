@@ -57,11 +57,9 @@ src/
 
 ## 两个容易踩的坑
 
-**JSON 字段名是 snake_case。** chatroom 的 Kratos v3 走 HTTP 时用的是
-`encoding/json` codec（不是 protojson），字段名取生成代码的 json tag，
-也就是 proto 原名 —— `user_id`、`created_at`、`next_cursor`。
-响应体是裸的 proto message，没有 `{code, message, data}` 包装层。
-错误响应的业务错误码在 `reason` 字段。
+**JSON 字段名是 snake_case。** Kratos v3 走 HTTP 时用的是 `encoding/json` codec
+（不是 protojson），字段名取生成代码的 json tag —— `user_id`、`created_at`。
+响应体是裸的 proto message，没有 `{code, message, data}` 包装层，业务错误码在 `reason` 字段。
 
 **枚举传数字。** `{"type": 2}` 是群聊，传字符串 `"GROUP"` 后端会 unmarshal 失败。
 

@@ -10,6 +10,7 @@ interface PresenceState {
   applyPresence: (members: Record<string, boolean>) => void
   /** 收到 online 帧，更新单个用户的状态。 */
   applyOnline: (userId: string, online: boolean) => void
+  /** 清空整个 store。 */
   reset: () => void
 }
 

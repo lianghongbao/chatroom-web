@@ -5,13 +5,17 @@ import { MessageType } from '../api/message'
 import { formatMessageTime } from '../utils/format'
 
 interface MessageBubbleProps {
+  /** 要渲染的消息。 */
   message: MessageInfo
+  /** 当前用户 uid，用来判断是不是自己发的。 */
   selfId: string
   /** 头像与昵称只在连续消息的第一条显示。 */
   showHeader: boolean
   /** 乐观气泡 —— 还没落库。 */
   pending?: boolean
+  /** 发送者昵称。 */
   nickname?: string
+  /** 发送者头像。 */
   avatar?: string
 }
 

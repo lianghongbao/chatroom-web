@@ -1,7 +1,10 @@
 /** 会话服务接口 —— 端口 8002。 */
 import { get, post } from './client'
 
-/** 会话类型。用 const 对象代替 enum —— tsconfig 开了 erasableSyntaxOnly。 */
+/**
+ * 会话类型。用 const 对象代替 enum —— tsconfig 开了 erasableSyntaxOnly。
+ * 枚举要传数字：2 是群聊，传字符串后端会 unmarshal 失败。
+ */
 export const ConversationType = {
   Unspecified: 0,
   Single: 1,
@@ -41,6 +44,7 @@ export interface MemberList {
 /**
  * 创建会话。
  *
+ * type 是会话类型，member_ids 是成员 uid 列表，name 是群名。
  * 单聊幂等：同一对成员返回同一会话，reused 为 true。
  * member_ids 至少 2 个，服务端会并入调用方自己。
  */
@@ -60,7 +64,11 @@ export function createConversation(input: {
   )
 }
 
-/** 列会话，按最后活动时间倒序。 */
+/**
+ * 列会话，按最后活动时间倒序。
+ *
+ * cursor 是上一页返回的 next_cursor（首页传空），pageSize 是每页条数。
+ */
 export function listConversations(cursor?: number, pageSize = 50) {
   return get<{ conversations: ConversationInfo[]; next_cursor: number }>(
     'conversation',
@@ -69,12 +77,12 @@ export function listConversations(cursor?: number, pageSize = 50) {
   )
 }
 
-/** 会话详情。 */
+/** 查会话详情，id 是会话 id。 */
 export function getConversation(id: number): Promise<{ conversation: ConversationInfo }> {
   return get<{ conversation: ConversationInfo }>('conversation', '/get', { id })
 }
 
-/** 往群聊加人。仅群主可调用。 */
+/** 往群聊加人。仅群主可调用，memberIds 是要加的 uid 列表。 */
 export function addMembers(conversationId: number, memberIds: string[]) {
   return post<{ member_count: number; added_count: number }>(
     'conversation',
@@ -83,7 +91,7 @@ export function addMembers(conversationId: number, memberIds: string[]) {
   )
 }
 
-/** 踢人。仅群主可调用。 */
+/** 踢人。仅群主可调用，memberId 是被踢者的 uid。 */
 export function removeMember(conversationId: number, memberId: string) {
   return post<{ member_count: number }>('conversation', '/members/remove', {
     conversation_id: conversationId,
@@ -96,7 +104,7 @@ export function leaveConversation(conversationId: number) {
   return post('conversation', '/leave', { conversation_id: conversationId })
 }
 
-/** 改群名。仅群主可调用。 */
+/** 改群名。仅群主可调用，name 是新群名。 */
 export function updateConversation(conversationId: number, name: string) {
   return post<{ conversation: ConversationInfo }>('conversation', '/update', {
     conversation_id: conversationId,
@@ -104,7 +112,7 @@ export function updateConversation(conversationId: number, name: string) {
   })
 }
 
-/** 转让群主。新群主必须是当前群成员。 */
+/** 转让群主。newOwnerId 必须是当前群成员的 uid。 */
 export function transferOwner(conversationId: number, newOwnerId: string) {
   return post<{ conversation: ConversationInfo }>('conversation', '/owner/transfer', {
     conversation_id: conversationId,

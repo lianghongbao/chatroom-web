@@ -9,6 +9,7 @@ import { ConversationType } from '../api/conversation'
 /**
  * 会话的展示名。
  *
+ * conversation 是会话概要，selfId 是当前用户 uid。
  * 单聊后端不返回 name（proto 里明说「单聊为空」），要用**对方**昵称兜底；
  * 群聊直接用群名。
  */
@@ -25,7 +26,7 @@ export function conversationTitle(
   return nickname || '未命名会话'
 }
 
-/** 单聊时对方的头像。群聊没有单一头像。 */
+/** 单聊时对方的头像。群聊没有单一头像。selfId 是当前用户 uid。 */
 export function conversationAvatar(
   conversation: ConversationInfo,
   selfId: string,

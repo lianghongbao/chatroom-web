@@ -4,6 +4,7 @@ import { defineConfig } from 'vite'
 // 五个后端服务的本地地址。
 // 开发期统一走 proxy：前端用同源的 /api/user、/api/friend 等路径请求，
 // 由 vite 转发到对应端口 —— 后端没开 CORS，同源代理最省事。
+// 要连远端环境时改这里即可。
 const BACKEND = {
   user: 'http://localhost:8000',
   friend: 'http://localhost:8001',

@@ -1,9 +1,9 @@
 /**
  * 后端 HTTP 客户端。
  *
- * chatroom 的 Kratos v3 走 HTTP 时，JSON 字段名是 snake_case（生成代码的 json tag 用 proto 原名），
- * 响应体是裸的 proto message —— 没有 {code, message, data} 包装层。
- * 错误响应是 Kratos Error：{code, reason, message}，业务错误码看 reason。
+ * Kratos v3 走 HTTP 时 JSON 字段名是 snake_case（json tag 用 proto 原名），
+ * 响应体是裸的 proto message，没有 {code, message, data} 包装层；
+ * 错误响应是 {code, reason, message}，业务错误码看 reason。
  */
 
 /** 带 HTTP 状态码与 reason 的错误。 */
@@ -37,12 +37,12 @@ export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_KEY)
 }
 
-/** 取 refresh token。 */
+/** 从 localStorage 取 refresh token。 */
 export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_KEY)
 }
 
-/** 存一对 token。 */
+/** 把一对 token 写进 localStorage。access 是短期凭证，refresh 是长期凭证。 */
 export function setTokens(access: string, refresh: string): void {
   localStorage.setItem(ACCESS_KEY, access)
   localStorage.setItem(REFRESH_KEY, refresh)
@@ -57,8 +57,8 @@ export function clearTokens(): void {
 /**
  * 刷新 token 的并发去重。
  *
- * 多个请求同时 401 时，只发一次 refresh，其余等同一个 Promise ——
- * 否则 refresh token 是一次性的（OAuth rotation），并发刷新会让后几次全部失败。
+ * refresh token 是一次性的（OAuth rotation），并发刷新会让后几次全部失败，
+ * 所以多个请求同时 401 时只发一次 refresh，其余等同一个 Promise。
  */
 let refreshPromise: Promise<boolean> | null = null
 
@@ -95,10 +95,10 @@ async function refreshAccessToken(): Promise<boolean> {
   return refreshPromise
 }
 
-/** 401 时的回调 —— 由 auth store 注册，用来把界面切回登录页。 */
+/** 401 回调 —— 由 auth store 注册，用来把界面切回登录页。 */
 let onUnauthorized: (() => void) | null = null
 
-/** 注册 401 回调。 */
+/** 注册 401 回调，传 null 取消。 */
 export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn
 }
@@ -107,13 +107,14 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   query?: Record<string, string | number | undefined>
-  /** 内部使用：标记这是刷新后重试，避免无限递归。 */
+  /** 标记这是刷新后的重试，避免无限递归。 */
   retry?: boolean
 }
 
 /**
  * 发一次请求。
  *
+ * service 是服务名，path 是相对路径，options 是方法、请求体、查询参数。
  * 自动带 Bearer token；401 时先尝试刷新再重试一次，仍失败则抛 ApiError。
  */
 export async function request<T>(
@@ -158,7 +159,7 @@ export async function request<T>(
     let reason = 'UNKNOWN'
     let message = `请求失败 (${res.status})`
     try {
-      // Kratos 的错误结构：{code, reason, message}，业务错误码看 reason
+      // Kratos 的错误结构是 {code, reason, message}，业务错误码看 reason
       const err = (await res.json()) as { reason?: string; message?: string }
       if (err.reason) reason = err.reason
       if (err.message) message = err.message
@@ -172,7 +173,7 @@ export async function request<T>(
   return (await res.json()) as T
 }
 
-/** GET。 */
+/** 发 GET 请求。query 是查询参数，值为空字符串或 undefined 的会被丢掉。 */
 export function get<T>(
   service: ServiceName,
   path: string,
@@ -181,7 +182,7 @@ export function get<T>(
   return request<T>(service, path, { method: 'GET', query })
 }
 
-/** POST。 */
+/** 发 POST 请求，body 是 JSON 请求体。 */
 export function post<T>(
   service: ServiceName,
   path: string,
@@ -190,7 +191,7 @@ export function post<T>(
   return request<T>(service, path, { method: 'POST', body })
 }
 
-/** PUT。 */
+/** 发 PUT 请求，body 是 JSON 请求体。 */
 export function put<T>(service: ServiceName, path: string, body?: unknown): Promise<T> {
   return request<T>(service, path, { method: 'PUT', body })
 }

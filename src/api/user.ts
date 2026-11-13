@@ -22,7 +22,9 @@ export interface LoginReply {
   token_type: string
 }
 
-/** 注册。username 必填，nickname 留空回退 username。 */
+/**
+ * 注册。username 必填，nickname 留空回退 username。
+ */
 export function register(username: string, password: string, nickname?: string) {
   return post<{ id: string }>('user', '/register', {
     username,
@@ -41,7 +43,7 @@ export async function login(username: string, password: string): Promise<LoginRe
   return reply
 }
 
-/** 登出：access 进黑名单 + refresh 删除。 */
+/** 登出：access 进黑名单 + refresh 删除。无论后端成败都会清本地 token。 */
 export async function logout(refreshToken: string): Promise<void> {
   try {
     await post('user', '/logout', { refresh_token: refreshToken })
@@ -50,7 +52,7 @@ export async function logout(refreshToken: string): Promise<void> {
   }
 }
 
-/** 当前用户资料。 */
+/** 查当前登录用户的资料。 */
 export function getCurrentUser(): Promise<UserInfo> {
   return get<UserInfo>('user', '/info')
 }
@@ -74,7 +76,11 @@ export function updateCurrentUser(input: {
   })
 }
 
-/** 改密。改完会强制登出当前会话。 */
+/**
+ * 改密。改完会强制登出当前会话。
+ *
+ * oldPassword 是原密码，newPassword 是新密码，refreshToken 用来作废旧会话。
+ */
 export function changePassword(oldPassword: string, newPassword: string, refreshToken: string) {
   return post('user', '/change_password', {
     old_password: oldPassword,

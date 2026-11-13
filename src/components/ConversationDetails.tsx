@@ -12,8 +12,11 @@ import { useConversationStore } from '../stores/conversation'
 import { errorMessage } from '../utils/errors'
 
 interface ConversationDetailsProps {
+  /** 要展示的会话。 */
   conversation: ConversationInfo
+  /** 是否展开。 */
   open: boolean
+  /** 关闭弹窗。 */
   onClose: () => void
   /** 会话被解散 / 退群后通知外层清掉当前会话。 */
   onClosed: () => void
@@ -56,7 +59,7 @@ export function ConversationDetails({
       .listMembers(conversation.id)
       .then(async (res) => {
         setMembers(res)
-        // 后端跨服务拉成员资料失败时会降级成空字符串（长度仍对齐）。
+        // 后端跨服务拉成员资料失败时会降级成空字符串（长度仍对齐），
         // 这时自己批量查一次 user 服务把资料补上。
         const missing = res.member_ids.filter((_, i) => !res.member_nicknames[i])
         if (!missing.length) return

@@ -12,7 +12,9 @@ import { useConversationStore } from '../stores/conversation'
 import { errorMessage } from '../utils/errors'
 
 interface NewChatDialogProps {
+  /** 是否展开。 */
   open: boolean
+  /** 关闭弹窗。 */
   onClose: () => void
   /** 选好之后把新会话交给外层打开。 */
   onCreated: (conversationId: number) => void

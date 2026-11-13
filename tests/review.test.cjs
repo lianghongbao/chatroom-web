@@ -8,7 +8,7 @@
  *   4. 会话详情成员资料回填
  *   5. update_mask 只带真正改动的字段
  *
- * 用法：node tests/review.test.js
+ * 用法：node tests/review.test.cjs
  */
 
 const { chromium } = require('/home/lhb/.npm-global/lib/node_modules/playwright')
@@ -106,7 +106,7 @@ async function main() {
   // 会话是刚用 API 建的，页面列表还是旧的 —— 重新加载
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(2500)
-  // A 打开会话 -> 触发 queryConversationStatus
+  // A 打开会话，触发 queryConversationStatus
   await page.locator('.conversation-item').first().click()
   await page.waitForTimeout(1500)
   const subtitleIdle = await page.locator('.chat-subtitle').first().textContent()
@@ -144,7 +144,7 @@ async function main() {
   check('乐观气泡已被 ack 替换（无残留「发送中」）', pendingLeft === 0, `${pendingLeft} 个`)
 
   console.log('\n=== 5. 未读数 ===')
-  // B 在第 3 步已经打开过会话 —— 那条消息的未读已被清掉。
+  // B 在第 3 步已经打开过会话，那条消息的未读已被清掉。
   // 这里另起一个会话：A 发消息，B 从不打开，未读应当留在 1。
   const userC = `revc${stamp}`
   const ctxC = await browser.newContext({ viewport: { width: 1280, height: 800 } })
@@ -244,8 +244,7 @@ async function main() {
   check('网关挂掉后 WS 状态变为非 open', !wsClosed.includes('ws-open'), wsClosed)
 
   // B 在 A 断线期间发消息 —— 走 HTTP，绕开已经死掉的 WS 连接。
-  // 这条消息落库时 A 的连接是断的，广播补不回来，
-  // 只能靠 A 重连后的 resume 补 —— 这样测的才是 resume 这条路径。
+  // 这条消息落库时 A 的连接是断的，广播补不回来，只能靠 A 重连后的 resume 补。
   const offlineText = `offline-${stamp}`
   const bToken = await pageB.evaluate(() => localStorage.getItem('chatroom.access_token'))
   const httpSent = await pageB.evaluate(
@@ -327,7 +326,7 @@ async function main() {
   check('成员列表显示昵称（回填生效）', hasRealName, memberNames.join(' | ').slice(0, 140))
 
   console.log('\n=== 9. update_mask 只带改动字段 ===')
-  // 改昵称 -> 请求体里 update_mask.paths 只能是 ["nickname"]
+  // 改昵称 —— 请求体里 update_mask.paths 只能是 ["nickname"]
   await page.keyboard.press('Escape')
   await page.waitForTimeout(400)
   const masked = await page.evaluate(async (nm) => {

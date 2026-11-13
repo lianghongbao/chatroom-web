@@ -14,8 +14,11 @@ import {
 } from '../utils/conversation'
 
 interface ConversationListProps {
+  /** 当前选中的会话 id。 */
   activeId: number | null
+  /** 点某个会话。 */
   onSelect: (conversation: ConversationInfo) => void
+  /** 点「+」发起新会话。 */
   onNewChat: () => void
 }
 

@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 # 算出 Playwright Chromium 能跑的 LD_LIBRARY_PATH。
-#
-# WSL 里 Playwright 自带的 chrome-headless-shell 缺一堆图形库，
-# 但 snap 装的 chromium / gnome-46 / cups / mesa 里都有。
-#
-# 不能把 snap 的 lib 目录全塞进去 —— core20 里的老 libc 会让 ld.so 直接崩
-# （_dl_call_libc_early_init assertion），所以这里只挑真正缺的那几个 .so
-# 所在的目录，并且排除 core20。
+# WSL 里 Playwright 自带的 chrome-headless-shell 缺图形库，但 snap 装的 chromium 有；
+# 不能把 snap 的 lib 目录全塞进去 —— core20 里的老 libc 会让 ld.so 直接崩，
+# 所以这里只挑真正缺的那几个 .so 所在目录并排除 core20。
 #
 # 用法： source tests/chromium-env.sh
 

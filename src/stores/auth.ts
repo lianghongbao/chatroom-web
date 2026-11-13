@@ -1,4 +1,4 @@
-/** 登录态 store。access/refresh token 存在 localStorage，用户资料存内存。 */
+/** 登录态 store。token 存 localStorage，用户资料存内存。 */
 import { create } from 'zustand'
 import * as userApi from '../api/user'
 import type { UserInfo } from '../api/user'

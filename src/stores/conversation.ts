@@ -20,17 +20,23 @@ interface ConversationState {
   error: string | null
   hasMore: boolean
   cursor: number
+  /** 拉第一页会话列表。 */
   load: () => Promise<void>
+  /** 按游标拉下一页。 */
   loadMore: () => Promise<void>
+  /** 重新拉一遍未读数。 */
   refreshUnread: () => Promise<void>
   /** 拉每个会话的最后一条消息，用来在列表里显示摘要。 */
   loadPreviews: (conversations: ConversationInfo[]) => Promise<void>
   /** 收到新消息时更新摘要，不用重新拉整个列表。 */
   setPreview: (conversationId: number, text: string, at: number) => void
+  /** 清掉某会话的未读角标。 */
   clearUnread: (conversationId: number) => void
   /** 会话被创建 / 更新后局部替换，保证列表里的名字和成员资料是最新的。 */
   upsert: (conversation: ConversationInfo) => void
+  /** 把会话从列表里删掉。 */
   remove: (conversationId: number) => void
+  /** 清空整个 store。 */
   reset: () => void
 }
 
