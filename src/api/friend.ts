@@ -22,7 +22,11 @@ export interface FriendInfo {
   message: string
 }
 
-/** 发起好友申请。幂等：重复申请会合并。 */
+/**
+ * 发起好友申请。幂等：重复申请会合并。
+ *
+ * targetId 是对方 uid，message 是验证消息（可空）。
+ */
 export function applyFriend(targetId: string, message?: string) {
   return post<{ request_id: number; status: FriendStatus }>('friend', '/apply', {
     target_id: targetId,
@@ -30,22 +34,26 @@ export function applyFriend(targetId: string, message?: string) {
   })
 }
 
-/** 同意好友申请。 */
+/** 同意好友申请。requestId 是申请记录的 id。 */
 export function acceptFriend(requestId: number) {
   return post<{ friend: FriendInfo }>('friend', '/accept', { request_id: requestId })
 }
 
-/** 拒绝好友申请。 */
+/** 拒绝好友申请。requestId 是申请记录的 id。 */
 export function rejectFriend(requestId: number) {
   return post('friend', '/reject', { request_id: requestId })
 }
 
-/** 删除好友。friend_id 是对方 uid，不是关系记录 id。 */
+/** 删除好友。friendId 是对方 uid，不是关系记录 id。 */
 export function removeFriend(friendId: string) {
   return post('friend', '/remove', { friend_id: friendId })
 }
 
-/** 列好友。cursor 是上一页的 next_cursor。 */
+/**
+ * 列好友。
+ *
+ * cursor 是上一页返回的 next_cursor（首页传空），pageSize 是每页条数。
+ */
 export function listFriends(cursor?: number, pageSize = 50) {
   return get<{ friends: FriendInfo[]; next_cursor: number }>('friend', '/list', {
     cursor: cursor || undefined,
@@ -53,7 +61,11 @@ export function listFriends(cursor?: number, pageSize = 50) {
   })
 }
 
-/** 列收到的申请。requests[].friend_id 指向申请发起方。 */
+/**
+ * 列收到的申请。
+ *
+ * requests[].friend_id 指向申请发起方；cursor 是上一页的 next_cursor。
+ */
 export function listPendingRequests(cursor?: number, pageSize = 50) {
   return get<{ requests: FriendInfo[]; next_cursor: number }>('friend', '/pending', {
     cursor: cursor || undefined,

@@ -2,10 +2,13 @@
 import { useMemo } from 'react'
 
 interface AvatarProps {
+  /** 头像图片地址，空则用首字色块。 */
   src?: string
+  /** 用于取首字和生成颜色。 */
   name?: string
+  /** 边长像素。 */
   size?: number
-  /** 在线状态点。 */
+  /** 在线状态点。传 undefined 则不显示这个点。 */
   online?: boolean
   className?: string
 }

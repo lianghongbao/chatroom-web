@@ -16,7 +16,7 @@ function emit(): void {
   for (const l of listeners) l([...items])
 }
 
-/** 弹一条提示。 */
+/** 弹一条提示，2.8 秒后自动消失。 */
 export function toast(message: string, kind: ToastKind = 'info'): void {
   const id = nextId++
   items = [...items, { id, message, kind }]

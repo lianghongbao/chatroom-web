@@ -16,11 +16,17 @@ import { formatDateSeparator, isNewTimeGroup } from '../utils/format'
 import { toast } from '../utils/toast'
 import { errorMessage } from '../utils/errors'
 
-/** 空列表的共享常量。selector 里返回新数组会让 zustand 判定状态一直在变。 */
+/**
+ * 空列表的共享常量。
+ *
+ * selector 里返回新数组会让 zustand v5 判定状态一直在变，于是无限重渲染。
+ */
 const EMPTY_MESSAGES: MessageInfo[] = []
 
 interface ChatPanelProps {
+  /** 当前打开的会话。 */
   conversation: ConversationInfo
+  /** 点右上角图标打开会话详情。 */
   onOpenDetails: () => void
 }
 
@@ -63,16 +69,14 @@ export function ChatPanel({ conversation, onOpenDetails }: ChatPanelProps) {
     }
   }
 
-  // 切会话：拉历史 + 清未读
+  // 切会话：拉历史 + 清未读 + 问网关要成员在线状态
   useEffect(() => {
     load(conversation.id)
     clearUnread(conversation.id)
-    // 问网关要会话成员的在线状态
     wsClient.queryConversationStatus(conversation.id)
   }, [conversation.id, load, clearUnread])
 
-  // 标记「已读」—— 通知后端清零。
-  // 依赖 messages.length：新消息进来时重新标记。
+  // 通知后端清零未读。依赖 messages.length：新消息进来时重新标记。
   useEffect(() => {
     const cid = conversation.id
     markReadApi(cid).catch(() => {

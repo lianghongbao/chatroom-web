@@ -1,7 +1,7 @@
 /** 时间格式化工具。 */
 
 /**
- * 会话列表里的时间摘要。
+ * 会话列表里的时间摘要。timestamp 是秒级 Unix 时间戳。
  *
  * 今天显示时分，昨天显示「昨天」，更早显示日期。
  */
@@ -49,7 +49,7 @@ export function formatMessageTime(timestamp: number): string {
   })
 }
 
-/** 消息区里的日期分隔条。 */
+/** 消息区里的日期分隔条。timestamp 是秒级 Unix 时间戳。 */
 export function formatDateSeparator(timestamp: number): string {
   const date = new Date(timestamp * 1000)
   const now = new Date()
@@ -70,7 +70,7 @@ export function formatDateSeparator(timestamp: number): string {
   return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-/** 判断两个时间戳是否隔了超过 5 分钟 —— 超过就要显示日期分隔条。 */
+/** 判断两个时间戳是否隔了超过 5 分钟 —— 超过就要显示日期分隔条。prev 为 0 表示没有上一条。 */
 export function isNewTimeGroup(prev: number, current: number): boolean {
   if (!prev) return true
   return current - prev > 5 * 60

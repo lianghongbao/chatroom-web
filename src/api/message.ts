@@ -1,7 +1,10 @@
 /** 消息服务接口 —— 端口 8003。 */
 import { get, post } from './client'
 
-/** 消息类型。用 const 对象代替 enum —— tsconfig 开了 erasableSyntaxOnly。 */
+/**
+ * 消息类型。用 const 对象代替 enum —— tsconfig 开了 erasableSyntaxOnly。
+ * 枚举要传数字，传字符串后端会 unmarshal 失败。
+ */
 export const MessageType = {
   Unspecified: 0,
   Text: 1,
@@ -23,6 +26,7 @@ export interface MessageInfo {
 /**
  * 发消息。
  *
+ * conversationId 是会话 id，content 是正文，type 是消息类型。
  * 调用方必须是会话成员（后端判定）。落库成功后才广播，
  * 所以「收到推送」等价于「已经存下来了」。
  */
@@ -37,7 +41,7 @@ export function sendMessage(conversationId: number, content: string, type = Mess
 /**
  * 拉历史消息。
  *
- * 游标分页：cursor 是「比这个 id 更旧的」，按 id 倒序返回（新的在前）。
+ * 游标分页：cursor 是「比这个 id 更旧的」，按 id 倒序返回（新的在前）；
  * 首次留空 = 从最新一条开始拉。
  */
 export function listMessages(conversationId: number, cursor?: number, pageSize = 30) {

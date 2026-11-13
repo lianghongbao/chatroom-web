@@ -9,7 +9,7 @@ import { errorMessage } from '../utils/errors'
 import { formatConversationTime } from '../utils/format'
 
 interface FriendsPageProps {
-  /** 点好友发起单聊。 */
+  /** 点好友「发消息」时回调。 */
   onStartChat: (friend: FriendInfo) => void
 }
 

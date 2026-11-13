@@ -5,8 +5,8 @@ import { ApiError } from '../api/client'
  * 后端 reason → 中文提示。命中的走定制文案，其余用通用文案。
  *
  * reason 必须跟后端**实际发出的字符串**一致。后端分两处定义：
- *   - 框架级：chatroom/pkg/errors/errors.go 的 reasonName 表（COMMON_* 前缀）
- *   - 域级：api/<域>/service/v1/error_reason.proto 的枚举名
+ * 框架级是 chatroom/pkg/errors/errors.go 的 reasonName 表（COMMON_* 前缀），
+ * 域级是 api/<域>/service/v1/error_reason.proto 的枚举名。
  * 写错一个字母就永远命中不了 —— 用户看到的是后端的英文原文。
  */
 const REASON_MESSAGES: Record<string, string> = {
@@ -66,7 +66,7 @@ const REASON_MESSAGES: Record<string, string> = {
  * 把任意异常转成可展示的文案。
  *
  * 后端的 reason 是业务错误码，比 message 更稳定 —— message 可能被后端改文案，
- * reason 不会。所以优先用 reason 映射。
+ * reason 不会。所以优先用 reason 映射；fallback 是兜底文案。
  */
 export function errorMessage(err: unknown, fallback = '操作失败'): string {
   if (err instanceof ApiError) {
