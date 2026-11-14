@@ -13,6 +13,8 @@ interface AvatarProps {
   className?: string
   /** 点头像时回调。传了就渲染成可点的样子。 */
   onClick?: () => void
+  /** 右上角的悬浮提示文字。传了才显示。 */
+  title?: string
 }
 
 /** 由字符串生成稳定的颜色。同一用户每次渲染都是同一个色。 */
@@ -43,7 +45,7 @@ function initial(name: string): string {
   return [...trimmed][0].toUpperCase()
 }
 
-export function Avatar({ src, name = '', size = 40, online, className = '', onClick }: AvatarProps) {
+export function Avatar({ src, name = '', size = 40, online, className = '', onClick, title }: AvatarProps) {
   const background = useMemo(() => colorFromString(name || '?'), [name])
   const fontSize = Math.round(size * 0.4)
 
@@ -51,6 +53,7 @@ export function Avatar({ src, name = '', size = 40, online, className = '', onCl
     <div
       className={`avatar ${className} ${onClick ? 'is-clickable' : ''}`}
       style={{ width: size, height: size, fontSize, background }}
+      title={title}
       // 用 button 而不是 div —— 键盘能聚焦，Tab 键能走到。
       {...(onClick
         ? { onClick, role: 'button', tabIndex: 0, onKeyDown: (e: React.KeyboardEvent) => {

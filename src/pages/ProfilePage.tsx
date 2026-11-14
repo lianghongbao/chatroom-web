@@ -1,5 +1,5 @@
 /** 个人资料页 —— 改昵称、头像、改密、登出。 */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Modal } from '../components/Modal'
 import { toast } from '../utils/toast'
@@ -26,6 +26,9 @@ export function ProfilePage() {
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+
+  // 隐藏的 file input —— 点头像时用 ref 触发它弹系统选择器。
+  const fileRef = useRef<HTMLInputElement>(null)
 
   if (!user) return null
 
@@ -138,15 +141,26 @@ export function ProfilePage() {
             <div className="field">
               <span className="field-label">头像</span>
               <div className="avatar-upload">
-                <Avatar src={avatar} name={user.nickname || user.username} size={56} />
+                {/* 点头像就弹文件选择器 —— 比让人去点「选择文件」按钮直观。 */}
+                <Avatar
+                  src={avatar}
+                  name={user.nickname || user.username}
+                  size={56}
+                  onClick={() => fileRef.current?.click()}
+                  title="点击更换头像"
+                />
                 <input
+                  ref={fileRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   onChange={handleAvatarPick}
                   disabled={uploading}
+                  hidden
                 />
+                <span className="avatar-upload-hint">
+                  {uploading ? '上传中…' : '点击头像更换'}
+                </span>
               </div>
-              {uploading && <p className="field-hint">上传中…</p>}
             </div>
             <div className="field">
               <span className="field-label">联系方式</span>
