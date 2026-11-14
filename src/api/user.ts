@@ -157,20 +157,27 @@ export function isPhone(input: string): boolean {
   return /^\d{11}$/.test(input.trim())
 }
 
-/** 上传凭证 —— 直传 OSS 用的预签名地址。 */
+/** 上传凭证 —— 直传 OSS 用的 PostObject 表单。 */
 export interface UploadToken {
-  /** 上传方法，恒为 PUT。 */
-  method: string
-  /** 带签名的直传地址。 */
-  url: string
+  /** OSS 上传地址，POST 到这里。 */
+  host: string
+  /** 表单字段，原样塞进 FormData。值不能改，改了签名对不上。 */
+  fields: Record<string, string>
   /** 完整 object key。 */
   file_key: string
   /** 上传后可访问的地址 —— 把它塞进 UpdateUser 的 avatar。 */
   public_url: string
-  /** 客户端必须带上的请求头。 */
-  signed_headers: Record<string, string>
   /** 过期时间，Unix 秒。 */
   expire_at: number
+  /** 允许的最大字节数，0 表示不限。 */
+  max_size: number
+}
+
+/** 把字节数格式成人看的尺寸。 */
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
 /**
@@ -183,22 +190,47 @@ export function getUploadToken(ext: string): Promise<UploadToken> {
 }
 
 /**
+ * 检查文件大小有没有超出凭证给的上限。
+ *
+ * maxSize 是上限字节数，<= 0 表示不限。
+ *
+ * 返回超限时的提示文案，没超限返 null —— 调用方直接弹提示即可。
+ */
+export function checkFileSize(fileSize: number, maxSize: number): string | null {
+  if (maxSize > 0 && fileSize > maxSize) {
+    return `图片太大（${formatSize(fileSize)}），上限 ${formatSize(maxSize)}`
+  }
+  return null
+}
+
+/**
  * 把文件直传到 OSS。
  *
  * token 是签发凭证，file 是要上传的文件。
  *
- * signed_headers 里的 Content-Type 参与签名 —— 必须原样带过去，
- * 换成别的值 OSS 会报 SignatureDoesNotMatch。
+ * 走 PostObject 表单上传 —— policy 里的 content-length-range 由 OSS 服务端强制，
+ * 超限的请求根本不会落盘。
  *
  * 返回上传后的公开访问地址。
  */
 export async function uploadToOSS(token: UploadToken, file: File): Promise<string> {
-  const res = await fetch(token.url, {
-    method: token.method || 'PUT',
-    headers: token.signed_headers || {},
-    body: file,
+  const form = new FormData()
+  // 表单域原样搬过去 —— policy 是对这一组值签的，改任何一个都验不过。
+  for (const [k, v] of Object.entries(token.fields || {})) {
+    form.append(k, v)
+  }
+  // file 域必须是最后一个 —— OSS 按顺序解析表单，file 在前面的话
+  // 后面的字段会被当成文件内容的一部分。
+  form.append('file', file)
+
+  const res = await fetch(token.host, {
+    method: 'POST',
+    body: form,
   })
   if (!res.ok) {
+    // 超限时 OSS 返 400 EntityTooLarge，body 里有原因。
+    // 客户端本地已经拦过一道，能到这里说明文件是中途才超限的
+    // （比如用户换了个更大的文件）。
     throw new Error(`上传失败 (${res.status})`)
   }
   return token.public_url

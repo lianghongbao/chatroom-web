@@ -46,6 +46,13 @@ export function ProfilePage() {
     try {
       const ext = userApi.fileExt(file.name)
       const token = await userApi.getUploadToken(ext)
+      // 上传前先按后端给的额度拦一道 —— 别浪费一次直传。
+      // 上限跟着后端配置走，前端不写死数字。
+      const tooBig = userApi.checkFileSize(file.size, token.max_size)
+      if (tooBig) {
+        toast(tooBig, 'error')
+        return
+      }
       const url = await userApi.uploadToOSS(token, file)
       await updateProfile({ avatar: url })
       toast('头像已更新', 'success')
