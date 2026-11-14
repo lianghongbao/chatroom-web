@@ -1501,26 +1501,6 @@
   }
 }
 
-.avatar-upload {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.avatar-upload input[type='file'] {
-  flex: 1;
-  height: auto;
-  padding: 6px 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-/* 头像上传区的提示文字 —— 挨着可点的头像。 */
-.avatar-upload-hint {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
 .field-hint {
   margin: 0;
   font-size: 12px;

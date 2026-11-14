@@ -16,7 +16,6 @@ export function ProfilePage() {
 
   const [editing, setEditing] = useState(false)
   const [nickname, setNickname] = useState(user?.nickname ?? '')
-  const [avatar, setAvatar] = useState(user?.avatar ?? '')
   const [phone, setPhone] = useState(user?.phone ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
   const [saving, setSaving] = useState(false)
@@ -32,8 +31,11 @@ export function ProfilePage() {
 
   if (!user) return null
 
-  // 选好文件后立刻直传 OSS，拿到地址填进 avatar 字段。
+  // 选好文件后立刻直传 OSS，拿到地址直接写回后端。
   // 走直传而不是后端中转 —— 图片字节不经过自己的服务器。
+  //
+  // 上传即生效，不等「保存」：头像不在编辑表单里，
+  // 指望用户先点编辑再点保存不现实。
   const handleAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     // 重置 input 的值 —— 选同一个文件两次也要能触发 change。
@@ -45,8 +47,8 @@ export function ProfilePage() {
       const ext = userApi.fileExt(file.name)
       const token = await userApi.getUploadToken(ext)
       const url = await userApi.uploadToOSS(token, file)
-      setAvatar(url)
-      toast('头像已上传，记得点保存', 'success')
+      await updateProfile({ avatar: url })
+      toast('头像已更新', 'success')
     } catch (err) {
       toast(errorMessage(err, '头像上传失败'), 'error')
     } finally {
@@ -58,14 +60,13 @@ export function ProfilePage() {
     setSaving(true)
     try {
       // 只提交改动过的字段 —— 后端对 mask 里的空值直接拒（INVALID_ARGUMENT），
-      // 所以「没改头像」时不能把 avatar 放进 mask。
+      // 所以「没改的字段」不能放进 mask。
+      // 头像不走这里 —— 上面点头像上传时就直接写回后端了。
       const nextNickname = nickname.trim()
-      const nextAvatar = avatar.trim()
       const nextPhone = phone.trim()
       const nextEmail = email.trim()
-      const changed: { nickname?: string; avatar?: string; phone?: string; email?: string } = {}
+      const changed: { nickname?: string; phone?: string; email?: string } = {}
       if (nextNickname !== (user.nickname ?? '')) changed.nickname = nextNickname
-      if (nextAvatar !== (user.avatar ?? '')) changed.avatar = nextAvatar
       // 手机号清空是合法操作 —— 空串 = 删掉这个号。
       if (nextPhone !== (user.phone ?? '')) changed.phone = nextPhone
       // 邮箱同理。
@@ -115,7 +116,14 @@ export function ProfilePage() {
 
       <div className="profile-card">
         <div className="profile-header">
-          <Avatar src={user.avatar} name={user.nickname || user.username} size={72} />
+          {/* 顶头大头像就是上传入口 —— 不用进编辑态，点哪儿都一样。 */}
+          <Avatar
+            src={user.avatar}
+            name={user.nickname || user.username}
+            size={72}
+            onClick={() => fileRef.current?.click()}
+            title={uploading ? '上传中…' : '点击更换头像'}
+          />
           <div className="profile-identity">
             <h2 className="profile-nickname">{user.nickname || user.username}</h2>
             <p className="profile-username">@{user.username}</p>
@@ -126,6 +134,16 @@ export function ProfilePage() {
             )}
           </div>
         </div>
+
+        {/* 隐藏的 file input —— 顶头大头像点一下就弹系统选择器。 */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleAvatarPick}
+          disabled={uploading}
+          hidden
+        />
 
         {editing ? (
           <div className="profile-edit">
@@ -138,30 +156,6 @@ export function ProfilePage() {
                 placeholder="你的昵称"
               />
             </label>
-            <div className="field">
-              <span className="field-label">头像</span>
-              <div className="avatar-upload">
-                {/* 点头像就弹文件选择器 —— 比让人去点「选择文件」按钮直观。 */}
-                <Avatar
-                  src={avatar}
-                  name={user.nickname || user.username}
-                  size={56}
-                  onClick={() => fileRef.current?.click()}
-                  title="点击更换头像"
-                />
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleAvatarPick}
-                  disabled={uploading}
-                  hidden
-                />
-                <span className="avatar-upload-hint">
-                  {uploading ? '上传中…' : '点击头像更换'}
-                </span>
-              </div>
-            </div>
             <div className="field">
               <span className="field-label">联系方式</span>
               <div className="field-pair">
@@ -193,7 +187,6 @@ export function ProfilePage() {
                 onClick={() => {
                   setEditing(false)
                   setNickname(user.nickname ?? '')
-                  setAvatar(user.avatar ?? '')
                   setPhone(user.phone ?? '')
                   setEmail(user.email ?? '')
                 }}
@@ -211,7 +204,6 @@ export function ProfilePage() {
               className="btn btn-ghost"
               onClick={() => {
                 setNickname(user.nickname ?? '')
-                setAvatar(user.avatar ?? '')
                 setPhone(user.phone ?? '')
                 setEmail(user.email ?? '')
                 setEditing(true)
