@@ -665,6 +665,8 @@
   border-radius: var(--radius-sm);
   outline: none;
   transition: border-color var(--transition), background var(--transition);
+  /* 全局没有 box-sizing 重置，默认 content-box —— 配合 width:100% 会溢出 */
+  box-sizing: border-box;
 }
 
 .field input:focus {
@@ -674,6 +676,52 @@
 
 .field input::placeholder {
   color: var(--text-tertiary);
+}
+
+/* ─────────────── 添加好友：查找结果 ─────────────── */
+
+.add-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.add-hint-error {
+  color: var(--danger);
+}
+
+.add-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 14px;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.add-result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.add-result-name {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-result-username {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ─────────────── 登录页 ─────────────── */
@@ -1112,6 +1160,32 @@
 
 .profile-row-value {
   font-size: 14px;
+}
+
+/* 并排的两个输入框（手机号 / 邮箱） */
+.field-pair {
+  display: flex;
+  gap: 10px;
+}
+
+/* 每个输入框自带小标签 —— 共用一个「联系方式」标签时，
+   光靠 placeholder 分不清哪个是手机号哪个是邮箱 */
+.field-sub {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-sub-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.field-sub input {
+  width: 100%;
+  min-width: 0;
 }
 
 /* ─────────────── 会话详情 ─────────────── */

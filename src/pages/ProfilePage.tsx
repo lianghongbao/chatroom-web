@@ -17,6 +17,8 @@ export function ProfilePage() {
   const [editing, setEditing] = useState(false)
   const [nickname, setNickname] = useState(user?.nickname ?? '')
   const [avatar, setAvatar] = useState(user?.avatar ?? '')
+  const [phone, setPhone] = useState(user?.phone ?? '')
+  const [email, setEmail] = useState(user?.email ?? '')
   const [saving, setSaving] = useState(false)
 
   const [pwdOpen, setPwdOpen] = useState(false)
@@ -33,9 +35,15 @@ export function ProfilePage() {
       // 所以「没改头像」时不能把 avatar 放进 mask。
       const nextNickname = nickname.trim()
       const nextAvatar = avatar.trim()
-      const changed: { nickname?: string; avatar?: string } = {}
+      const nextPhone = phone.trim()
+      const nextEmail = email.trim()
+      const changed: { nickname?: string; avatar?: string; phone?: string; email?: string } = {}
       if (nextNickname !== (user.nickname ?? '')) changed.nickname = nextNickname
       if (nextAvatar !== (user.avatar ?? '')) changed.avatar = nextAvatar
+      // 手机号清空是合法操作 —— 空串 = 删掉这个号。
+      if (nextPhone !== (user.phone ?? '')) changed.phone = nextPhone
+      // 邮箱同理。
+      if (nextEmail !== (user.email ?? '')) changed.email = nextEmail
 
       if (Object.keys(changed).length === 0) {
         toast('没有改动', 'info')
@@ -113,6 +121,31 @@ export function ProfilePage() {
                 placeholder="https://…"
               />
             </label>
+            <div className="field">
+              <span className="field-label">联系方式</span>
+              <div className="field-pair">
+                <label className="field-sub">
+                  <span className="field-sub-label">手机号</span>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="11 位手机号"
+                    maxLength={11}
+                    inputMode="numeric"
+                  />
+                </label>
+                <label className="field-sub">
+                  <span className="field-sub-label">邮箱</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="alice@example.com"
+                  />
+                </label>
+              </div>
+            </div>
             <div className="profile-edit-actions">
               <button
                 className="btn btn-ghost"
@@ -120,6 +153,8 @@ export function ProfilePage() {
                   setEditing(false)
                   setNickname(user.nickname ?? '')
                   setAvatar(user.avatar ?? '')
+                  setPhone(user.phone ?? '')
+                  setEmail(user.email ?? '')
                 }}
               >
                 取消
@@ -136,6 +171,8 @@ export function ProfilePage() {
               onClick={() => {
                 setNickname(user.nickname ?? '')
                 setAvatar(user.avatar ?? '')
+                setPhone(user.phone ?? '')
+                setEmail(user.email ?? '')
                 setEditing(true)
               }}
             >
@@ -148,12 +185,20 @@ export function ProfilePage() {
         )}
       </div>
 
-      {user.email && (
+      {(user.phone || user.email) && (
         <div className="profile-card">
-          <div className="profile-row">
-            <span className="profile-row-label">邮箱</span>
-            <span className="profile-row-value">{user.email}</span>
-          </div>
+          {user.phone && (
+            <div className="profile-row">
+              <span className="profile-row-label">手机号</span>
+              <span className="profile-row-value">{user.phone}</span>
+            </div>
+          )}
+          {user.email && (
+            <div className="profile-row">
+              <span className="profile-row-label">邮箱</span>
+              <span className="profile-row-value">{user.email}</span>
+            </div>
+          )}
         </div>
       )}
 
