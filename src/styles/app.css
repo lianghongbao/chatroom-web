@@ -571,6 +571,21 @@
   background: var(--text-tertiary);
 }
 
+/* 可点的头像。悬停加一圈描边，让用户知道这里能点。 */
+.avatar.is-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.avatar.is-clickable:hover {
+  box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--primary);
+}
+
+.avatar.is-clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--primary);
+}
+
 /* ─────────────── 按钮 ─────────────── */
 
 .btn {
@@ -1160,6 +1175,82 @@
 
 .profile-row-value {
   font-size: 14px;
+}
+
+/* ─────────────── 用户资料弹窗 ─────────────── */
+
+.user-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.user-profile-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.user-profile-hint.is-error {
+  color: var(--danger);
+}
+
+.user-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-profile-identity {
+  min-width: 0;
+}
+
+.user-profile-nickname {
+  margin: 0 0 3px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.user-profile-username {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.user-profile-fields {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-profile-field {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.user-profile-field dt {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.user-profile-field dd {
+  margin: 0;
+  font-size: 13px;
+  text-align: right;
+  min-width: 0;
+}
+
+/* uid 很长，允许换行，别把弹窗撑破 */
+.user-profile-uid {
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px !important;
+  color: var(--text-tertiary);
 }
 
 /* 并排的两个输入框（手机号 / 邮箱） */

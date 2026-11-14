@@ -6,6 +6,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ConversationList } from './components/ConversationList'
 import { ChatPanel } from './components/ChatPanel'
 import { ConversationDetails } from './components/ConversationDetails'
+import { UserProfileModal } from './components/UserProfileModal'
 import { NewChatDialog } from './components/NewChatDialog'
 import { Avatar } from './components/Avatar'
 import { toast } from './utils/toast'
@@ -35,6 +36,8 @@ export default function App() {
   const [newChatOpen, setNewChatOpen] = useState(false)
   const [presetUserId, setPresetUserId] = useState<string | undefined>()
   const [wsStatus, setWsStatus] = useState<'connecting' | 'open' | 'closed'>('closed')
+  // 点头像看资料弹窗。被看的人的 uid。
+  const [profileUserId, setProfileUserId] = useState<string | null>(null)
 
   // 恢复登录态
   useEffect(() => {
@@ -116,6 +119,11 @@ export default function App() {
   const handleCreated = (conversationId: number) => {
     setTab('chat')
     setActiveId(conversationId)
+  }
+
+  /** 点头像看对方资料。userId 是被点的人的 uid。 */
+  const handleOpenProfile = (userId: string) => {
+    setProfileUserId(userId)
   }
 
   if (initializing) {
@@ -211,6 +219,7 @@ export default function App() {
                   key={conversation.id}
                   conversation={conversation}
                   onOpenDetails={() => setDetailsOpen(true)}
+                  onOpenProfile={handleOpenProfile}
                 />
               ) : (
                 <div className="empty-state">
@@ -243,6 +252,16 @@ export default function App() {
             setDetailsOpen(false)
             setActiveId(null)
           }}
+          onOpenProfile={handleOpenProfile}
+        />
+      )}
+
+      {conversation && profileUserId && (
+        <UserProfileModal
+          conversationId={conversation.id}
+          userId={profileUserId}
+          open
+          onClose={() => setProfileUserId(null)}
         />
       )}
 

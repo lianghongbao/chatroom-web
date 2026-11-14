@@ -131,3 +131,35 @@ export function listMembers(conversationId: number): Promise<MemberList> {
     conversation_id: conversationId,
   })
 }
+
+/**
+ * 会话成员的公开资料。
+ *
+ * 不含 email / phone —— 那是仅本人可见的字段。
+ */
+export interface MemberProfile {
+  id: string
+  username: string
+  nickname: string
+  avatar: string
+  /** 加入时间，Unix 秒。 */
+  created_at: number
+}
+
+/**
+ * 查会话里某个成员的公开资料。
+ *
+ * 跟 user 服务的 GET /api/user/{id} 区别：**不要求对方「对陌生人可见」** ——
+ * 同在一个会话里就已经互相可见昵称头像了。
+ *
+ * 调用方和被查的人都必须是该会话的成员，否则后端返 404。
+ */
+export function getMemberProfile(
+  conversationId: number,
+  userId: string,
+): Promise<MemberProfile> {
+  return get<MemberProfile>('conversation', '/members/profile', {
+    conversation_id: conversationId,
+    user_id: userId,
+  })
+}

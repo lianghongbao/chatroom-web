@@ -28,9 +28,11 @@ interface ChatPanelProps {
   conversation: ConversationInfo
   /** 点右上角图标打开会话详情。 */
   onOpenDetails: () => void
+  /** 点头像看对方资料。传的是被点的人的 uid。 */
+  onOpenProfile?: (userId: string) => void
 }
 
-export function ChatPanel({ conversation, onOpenDetails }: ChatPanelProps) {
+export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPanelProps) {
   const selfId = useAuthStore((s) => s.user?.id ?? '')
   // 空数组用模块级常量 —— 每次 selector 里写 [] 会每次返回新引用，
   // zustand 的 getSnapshot 判定「变了」，于是无限重渲染。
@@ -216,6 +218,9 @@ export function ChatPanel({ conversation, onOpenDetails }: ChatPanelProps) {
                   pending={message.id < 0}
                   nickname={profile.nickname}
                   avatar={profile.avatar}
+                  onAvatarClick={
+                    onOpenProfile ? () => onOpenProfile(message.sender_id) : undefined
+                  }
                 />
               </div>
             )

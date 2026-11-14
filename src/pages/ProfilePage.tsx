@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/auth'
 import { getRefreshToken } from '../api/client'
 import * as userApi from '../api/user'
 import { errorMessage } from '../utils/errors'
-import { formatConversationTime } from '../utils/format'
+import { formatFullDateTime } from '../utils/format'
 
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user)
@@ -118,7 +118,7 @@ export function ProfilePage() {
             <p className="profile-username">@{user.username}</p>
             {user.created_at > 0 && (
               <p className="profile-joined">
-                加入于 {formatConversationTime(user.created_at)}
+                加入于 {formatFullDateTime(user.created_at)}
               </p>
             )}
           </div>

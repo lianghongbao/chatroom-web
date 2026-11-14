@@ -75,3 +75,22 @@ export function isNewTimeGroup(prev: number, current: number): boolean {
   if (!prev) return true
   return current - prev > 5 * 60
 }
+
+/**
+ * 完整日期时间。timestamp 是秒级 Unix 时间戳。
+ *
+ * 跟 formatConversationTime 的区别：那个是「消息时间」——今天的只显示时分，
+ * 因为看的人关心的是几点。这个是「加入时间」这类需要看具体日子的场合，
+ * 所以始终带年月日。
+ */
+export function formatFullDateTime(timestamp: number): string {
+  if (!timestamp) return ''
+  const date = new Date(timestamp * 1000)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}

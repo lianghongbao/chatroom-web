@@ -20,6 +20,8 @@ interface ConversationDetailsProps {
   onClose: () => void
   /** 会话被解散 / 退群后通知外层清掉当前会话。 */
   onClosed: () => void
+  /** 点成员头像看对方资料。传的是被点的人的 uid。 */
+  onOpenProfile?: (userId: string) => void
 }
 
 export function ConversationDetails({
@@ -27,6 +29,7 @@ export function ConversationDetails({
   open,
   onClose,
   onClosed,
+  onOpenProfile,
 }: ConversationDetailsProps) {
   const selfId = useAuthStore((s) => s.user?.id ?? '')
   const upsert = useConversationStore((s) => s.upsert)
@@ -203,7 +206,14 @@ export function ConversationDetails({
                   const isSelf = id === selfId
                   return (
                     <li key={id} className="member-item">
-                      <Avatar src={avatar} name={nickname} size={36} />
+                      <Avatar
+                        src={avatar}
+                        name={nickname}
+                        size={36}
+                        onClick={
+                          onOpenProfile && !isSelf ? () => onOpenProfile(id) : undefined
+                        }
+                      />
                       <div className="member-info">
                         <span className="member-name">
                           {nickname || '未知用户'}

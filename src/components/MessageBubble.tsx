@@ -17,6 +17,8 @@ interface MessageBubbleProps {
   nickname?: string
   /** 发送者头像。 */
   avatar?: string
+  /** 点头像看对方资料。自己的头像不给点。 */
+  onAvatarClick?: () => void
 }
 
 export function MessageBubble({
@@ -26,6 +28,7 @@ export function MessageBubble({
   pending,
   nickname,
   avatar,
+  onAvatarClick,
 }: MessageBubbleProps) {
   const isSelf = message.sender_id === selfId
   const isImage = message.type === MessageType.Image
@@ -38,6 +41,7 @@ export function MessageBubble({
             src={isSelf ? undefined : avatar}
             name={isSelf ? '我' : (nickname ?? '')}
             size={36}
+            onClick={isSelf ? undefined : onAvatarClick}
           />
         )}
       </div>
