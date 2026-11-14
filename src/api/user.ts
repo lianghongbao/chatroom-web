@@ -156,3 +156,60 @@ export function findUser(input: string): Promise<UserInfo> {
 export function isPhone(input: string): boolean {
   return /^\d{11}$/.test(input.trim())
 }
+
+/** 上传凭证 —— 直传 OSS 用的预签名地址。 */
+export interface UploadToken {
+  /** 上传方法，恒为 PUT。 */
+  method: string
+  /** 带签名的直传地址。 */
+  url: string
+  /** 完整 object key。 */
+  file_key: string
+  /** 上传后可访问的地址 —— 把它塞进 UpdateUser 的 avatar。 */
+  public_url: string
+  /** 客户端必须带上的请求头。 */
+  signed_headers: Record<string, string>
+  /** 过期时间，Unix 秒。 */
+  expire_at: number
+}
+
+/**
+ * 签发头像直传凭证。
+ *
+ * ext 是文件后缀，不带点。后缀不在后端白名单内时返 400。
+ */
+export function getUploadToken(ext: string): Promise<UploadToken> {
+  return post<UploadToken>('user', '/upload_token', { ext })
+}
+
+/**
+ * 把文件直传到 OSS。
+ *
+ * token 是签发凭证，file 是要上传的文件。
+ *
+ * signed_headers 里的 Content-Type 参与签名 —— 必须原样带过去，
+ * 换成别的值 OSS 会报 SignatureDoesNotMatch。
+ *
+ * 返回上传后的公开访问地址。
+ */
+export async function uploadToOSS(token: UploadToken, file: File): Promise<string> {
+  const res = await fetch(token.url, {
+    method: token.method || 'PUT',
+    headers: token.signed_headers || {},
+    body: file,
+  })
+  if (!res.ok) {
+    throw new Error(`上传失败 (${res.status})`)
+  }
+  return token.public_url
+}
+
+/**
+ * 取文件的扩展名（小写，不带点）。
+ *
+ * 从文件名解析 —— 不看 MIME 类型，后缀白名单是按扩展名判的。
+ */
+export function fileExt(name: string): string {
+  const i = name.lastIndexOf('.')
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : ''
+}

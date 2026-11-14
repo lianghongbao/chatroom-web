@@ -20,6 +20,7 @@ export function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const [pwdOpen, setPwdOpen] = useState(false)
   const [oldPassword, setOldPassword] = useState('')
@@ -27,6 +28,28 @@ export function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('')
 
   if (!user) return null
+
+  // 选好文件后立刻直传 OSS，拿到地址填进 avatar 字段。
+  // 走直传而不是后端中转 —— 图片字节不经过自己的服务器。
+  const handleAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // 重置 input 的值 —— 选同一个文件两次也要能触发 change。
+    e.target.value = ''
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const ext = userApi.fileExt(file.name)
+      const token = await userApi.getUploadToken(ext)
+      const url = await userApi.uploadToOSS(token, file)
+      setAvatar(url)
+      toast('头像已上传，记得点保存', 'success')
+    } catch (err) {
+      toast(errorMessage(err, '头像上传失败'), 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -112,15 +135,19 @@ export function ProfilePage() {
                 placeholder="你的昵称"
               />
             </label>
-            <label className="field">
-              <span className="field-label">头像 URL</span>
-              <input
-                type="text"
-                value={avatar}
-                onChange={(e) => setAvatar(e.target.value)}
-                placeholder="https://…"
-              />
-            </label>
+            <div className="field">
+              <span className="field-label">头像</span>
+              <div className="avatar-upload">
+                <Avatar src={avatar} name={user.nickname || user.username} size={56} />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleAvatarPick}
+                  disabled={uploading}
+                />
+              </div>
+              {uploading && <p className="field-hint">上传中…</p>}
+            </div>
             <div className="field">
               <span className="field-label">联系方式</span>
               <div className="field-pair">
