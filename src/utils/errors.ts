@@ -30,6 +30,7 @@ const REASON_MESSAGES: Record<string, string> = {
   USER_TOKEN_BLACKLISTED: '登录凭证已失效，请重新登录',
   USER_INVALID_OLD_PASSWORD: '原密码不正确',
   USER_BANNED: '账号已被封禁',
+  USER_PHONE_TAKEN: '该手机号已被占用',
 
   // friend 域
   FRIEND_NOT_FOUND: '好友申请不存在',

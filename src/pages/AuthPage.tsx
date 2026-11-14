@@ -9,6 +9,8 @@ export function AuthPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [nickname, setNickname] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const login = useAuthStore((s) => s.login)
   const register = useAuthStore((s) => s.register)
   const loading = useAuthStore((s) => s.loading)
@@ -30,7 +32,7 @@ export function AuthPage() {
       if (mode === 'login') {
         await login(username.trim(), password)
       } else {
-        await register(username.trim(), password, nickname.trim() || undefined)
+        await register(username.trim(), password, nickname.trim() || undefined, phone.trim() || undefined, email.trim() || undefined)
       }
     } catch (err) {
       toast(errorMessage(err, mode === 'login' ? '登录失败' : '注册失败'), 'error')
@@ -64,15 +66,37 @@ export function AuthPage() {
           </label>
 
           {mode === 'register' && (
-            <label className="field">
-              <span className="field-label">昵称（可选）</span>
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="留空则使用用户名"
-              />
-            </label>
+            <>
+              <label className="field">
+                <span className="field-label">昵称（可选）</span>
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="留空则使用用户名"
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">手机号（可选）</span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="11 位手机号，用于添加好友"
+                  maxLength={11}
+                  inputMode="numeric"
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">邮箱（可选）</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="alice@example.com"
+                />
+              </label>
+            </>
           )}
 
           <label className="field">

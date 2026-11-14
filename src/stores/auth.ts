@@ -27,9 +27,20 @@ interface AuthState {
   /** 初始化中 —— 决定首屏显示骨架还是登录页。 */
   initializing: boolean
   login: (username: string, password: string) => Promise<void>
-  register: (username: string, password: string, nickname?: string) => Promise<void>
+  register: (
+    username: string,
+    password: string,
+    nickname?: string,
+    phone?: string,
+    email?: string,
+  ) => Promise<void>
   logout: () => Promise<void>
-  updateProfile: (input: { nickname?: string; avatar?: string }) => Promise<void>
+  updateProfile: (input: {
+    nickname?: string
+    avatar?: string
+    phone?: string
+    email?: string
+  }) => Promise<void>
   clearError: () => void
 }
 
@@ -55,10 +66,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  async register(username, password, nickname) {
+  async register(username, password, nickname, phone, email) {
     set({ loading: true, error: null })
     try {
-      await userApi.register(username, password, nickname)
+      await userApi.register(username, password, nickname, phone, email)
       await userApi.login(username, password)
       const me = await userApi.getCurrentUser()
       clearUserData()
@@ -90,8 +101,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     // mask 只列真正要改的字段。
     // 后端对 mask 里的空值直接返 INVALID_ARGUMENT ——
     // 只改昵称时若把 avatar 也列进 mask（值为空），整个请求会被拒。
+    //
+    // phone / email 是例外：空串 = 清空，所以要用 undefined 判断「没传」，
+    // 不能用「是否为空串」。
     const paths = Object.entries(input)
-      .filter(([, v]) => v !== undefined && v !== '')
+      .filter(([k, v]) => v !== undefined && (k === 'phone' || k === 'email' || v !== ''))
       .map(([k]) => k)
     if (paths.length === 0) return
 
