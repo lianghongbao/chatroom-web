@@ -36,11 +36,45 @@ export interface ConversationInfo {
   created_at: number
 }
 
+/**
+ * 把后端返回的会话补成「数组字段一定是数组」的形状。
+ *
+ * **为什么需要这一步**：protojson 对空的 repeated 字段是**整个省略**，不是返 []。
+ * 所以后端某个接口没填 member_nicknames 时，前端拿到的就是 undefined ——
+ * TS 类型说是 string[]，运行时却是 undefined，类型骗人。
+ *
+ * 之前踩过：改群头像后用 update 响应替换列表里的会话，那个响应没填成员资料，
+ * 聊天面板按下标读 member_nicknames[index] 直接抛 TypeError，整个界面白屏。
+ *
+ * 兜底放在 API 边界 —— 组件里不用到处判空。
+ */
+function normalizeConversation(c: ConversationInfo): ConversationInfo {
+  return {
+    ...c,
+    name: c.name ?? '',
+    avatar: c.avatar ?? '',
+    owner_id: c.owner_id ?? '',
+    member_ids: c.member_ids ?? [],
+    member_nicknames: c.member_nicknames ?? [],
+    member_avatars: c.member_avatars ?? [],
+    last_message: c.last_message ?? '',
+  }
+}
+
 /** 会话成员列表。三个数组按下标对齐。 */
 export interface MemberList {
   member_ids: string[]
   member_nicknames: string[]
   member_avatars: string[]
+}
+
+/** 把成员列表补成「数组字段一定是数组」的形状。理由同 normalizeConversation。 */
+function normalizeMemberList(m: MemberList): MemberList {
+  return {
+    member_ids: m.member_ids ?? [],
+    member_nicknames: m.member_nicknames ?? [],
+    member_avatars: m.member_avatars ?? [],
+  }
 }
 
 /**
@@ -50,12 +84,12 @@ export interface MemberList {
  * 单聊幂等：同一对成员返回同一会话，reused 为 true。
  * member_ids 至少 2 个，服务端会并入调用方自己。
  */
-export function createConversation(input: {
+export async function createConversation(input: {
   type?: ConversationType
   member_ids: string[]
   name?: string
 }) {
-  return post<{ conversation: ConversationInfo; reused: boolean }>(
+  const res = await post<{ conversation: ConversationInfo; reused: boolean }>(
     'conversation',
     '/create',
     {
@@ -64,6 +98,7 @@ export function createConversation(input: {
       name: input.name ?? '',
     },
   )
+  return { ...res, conversation: normalizeConversation(res.conversation) }
 }
 
 /**
@@ -71,17 +106,22 @@ export function createConversation(input: {
  *
  * cursor 是上一页返回的 next_cursor（首页传空），pageSize 是每页条数。
  */
-export function listConversations(cursor?: number, pageSize = 50) {
-  return get<{ conversations: ConversationInfo[]; next_cursor: number }>(
+export async function listConversations(cursor?: number, pageSize = 50) {
+  const res = await get<{ conversations: ConversationInfo[]; next_cursor: number }>(
     'conversation',
     '/list',
     { cursor: cursor || undefined, page_size: pageSize },
   )
+  return {
+    ...res,
+    conversations: (res.conversations ?? []).map(normalizeConversation),
+  }
 }
 
 /** 查会话详情，id 是会话 id。 */
-export function getConversation(id: number): Promise<{ conversation: ConversationInfo }> {
-  return get<{ conversation: ConversationInfo }>('conversation', '/get', { id })
+export async function getConversation(id: number): Promise<{ conversation: ConversationInfo }> {
+  const res = await get<{ conversation: ConversationInfo }>('conversation', '/get', { id })
+  return { ...res, conversation: normalizeConversation(res.conversation) }
 }
 
 /** 往群聊加人。仅群主可调用，memberIds 是要加的 uid 列表。 */
@@ -112,16 +152,17 @@ export function leaveConversation(conversationId: number) {
  * name 和 avatar 都留空 = 无操作，后端返 INVALID_ARGUMENT。
  * 留空的字段表示「不改」—— 改头像时不想连带改名字就传空串。
  */
-export function updateConversation(
+export async function updateConversation(
   conversationId: number,
   name: string,
   avatar = '',
 ) {
-  return post<{ conversation: ConversationInfo }>('conversation', '/update', {
+  const res = await post<{ conversation: ConversationInfo }>('conversation', '/update', {
     conversation_id: conversationId,
     name,
     avatar,
   })
+  return { ...res, conversation: normalizeConversation(res.conversation) }
 }
 
 /**
@@ -163,11 +204,12 @@ export function getGroupAvatarUploadToken(
 }
 
 /** 转让群主。newOwnerId 必须是当前群成员的 uid。 */
-export function transferOwner(conversationId: number, newOwnerId: string) {
-  return post<{ conversation: ConversationInfo }>('conversation', '/owner/transfer', {
+export async function transferOwner(conversationId: number, newOwnerId: string) {
+  const res = await post<{ conversation: ConversationInfo }>('conversation', '/owner/transfer', {
     conversation_id: conversationId,
     new_owner_id: newOwnerId,
   })
+  return { ...res, conversation: normalizeConversation(res.conversation) }
 }
 
 /** 解散群聊。不可恢复。 */
@@ -176,10 +218,11 @@ export function dissolveConversation(conversationId: number) {
 }
 
 /** 列会话成员。仅会话成员可见。 */
-export function listMembers(conversationId: number): Promise<MemberList> {
-  return get<MemberList>('conversation', '/members/list', {
+export async function listMembers(conversationId: number): Promise<MemberList> {
+  const res = await get<MemberList>('conversation', '/members/list', {
     conversation_id: conversationId,
   })
+  return normalizeMemberList(res)
 }
 
 /**

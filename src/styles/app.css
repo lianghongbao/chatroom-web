@@ -353,6 +353,35 @@
   margin: 0;
 }
 
+/* 群主可以点群名就地改 —— 鼠标指针和轻微底色提示可点。 */
+.chat-title.is-editable {
+  cursor: text;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: -4px;
+  transition: background-color 0.12s;
+}
+
+.chat-title.is-editable:hover {
+  background: var(--bg-hover);
+}
+
+/* 就地编辑群名的输入框 —— 长得跟标题一样，不打断视觉。 */
+.chat-title-input {
+  font-size: 15px;
+  font-weight: 600;
+  width: 100%;
+  max-width: 420px;
+  padding: 0 4px;
+  margin-left: -4px;
+  border: 1px solid var(--brand);
+  border-radius: 4px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: inherit;
+  outline: none;
+}
+
 .chat-subtitle {
   margin: 1px 0 0;
   font-size: 12px;
@@ -1078,12 +1107,33 @@
 .friend-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   padding: 12px 16px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-bottom: 8px;
+}
+
+/*
+ * 整行主操作区 —— 点它就是发消息。
+ *
+ * 好友列表的主功能是「开聊」，不是「管理」。所以主操作占满整行，
+ * 破坏性操作（删除）收进右边的「⋯」菜单里。
+ */
+.friend-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition);
+}
+
+.friend-main:hover .friend-name {
+  color: var(--brand);
 }
 
 .friend-info {
@@ -1096,6 +1146,7 @@
 
 .friend-name {
   font-weight: 550;
+  transition: color var(--transition);
 }
 
 .friend-meta {
@@ -1114,6 +1165,68 @@
   flex-shrink: 0;
 }
 
+/* 「⋯」的定位容器 —— 菜单要相对它绝对定位。 */
+.friend-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* 平时藏起来，鼠标移到这一行才出现 —— 跟微信/Telegram 一致。 */
+.friend-menu-trigger {
+  opacity: 0;
+  transition: opacity var(--transition), background var(--transition);
+}
+
+.friend-item:hover .friend-menu-trigger,
+.friend-menu-trigger:focus-visible,
+.friend-menu-trigger[aria-expanded='true'] {
+  opacity: 1;
+}
+
+/* 悬浮菜单本体 */
+.friend-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 132px;
+  padding: 4px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.friend-menu-item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  text-align: left;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  transition: background var(--transition), color var(--transition);
+}
+
+.friend-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.friend-menu-item.is-danger {
+  color: var(--danger);
+}
+
+.friend-menu-item.is-danger:hover {
+  background: var(--danger-soft);
+}
+
+/* 删除确认弹窗里的正文 */
+.confirm-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
 .profile-page {
   padding-bottom: 32px;
 }
@@ -1127,16 +1240,101 @@
   border-radius: var(--radius);
 }
 
-.profile-header {
+/*
+ * 头图区 —— 大头像 + 昵称。
+
+ * 头像右下角挂一个「相机」角标：明说「点这里能换头像」，
+ * 比让用户自己猜大头像可不可点强（微信、Instagram 都是这么做的）。
+ */
+.profile-hero {
   display: flex;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 20px;
+  gap: 22px;
+  max-width: 620px;
+  margin: 24px 28px 8px;
+  padding: 26px 24px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+/* 头像 + 相机角标的定位容器 */
+.profile-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  /* 给角标留出位置 —— 否则角标会压在头像首字上。 */
+  padding: 4px;
+  margin: -4px;
+}
+
+/*
+ * 群头像的角标 —— 跟个人资料页同一套交互。
+ *
+ * 聊天头部的头像小（38px），角标也要跟着小一点，
+ * 否则一个大蓝点盖住半个头像。
+ */
+.group-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  padding: 3px;
+  margin: -3px;
+}
+
+.group-avatar-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-inverse);
+  background: var(--brand);
+  border: 2px solid var(--bg-panel);
+  border-radius: var(--radius-full);
+  transition: background var(--transition), transform var(--transition);
+}
+
+.group-avatar-badge:hover:not(:disabled) {
+  background: var(--brand-hover);
+  transform: scale(1.08);
+}
+
+.group-avatar-badge:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.profile-avatar-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-inverse);
+  background: var(--brand);
+  border: 2px solid var(--bg-panel);
+  border-radius: var(--radius-full);
+  transition: background var(--transition), transform var(--transition);
+}
+
+.profile-avatar-badge:hover:not(:disabled) {
+  background: var(--brand-hover);
+  transform: scale(1.06);
+}
+
+.profile-avatar-badge:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .profile-nickname {
   margin: 0 0 2px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
 }
 
@@ -1152,30 +1350,197 @@
   color: var(--text-tertiary);
 }
 
-.profile-edit-actions,
-.profile-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  padding-top: 4px;
+/* 分区标题 —— 「个人资料」「设置」 */
+.profile-section {
+  max-width: 620px;
+  margin: 20px 28px;
 }
 
-.profile-row {
+.profile-section-title {
+  margin: 0 0 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.profile-fields,
+.profile-settings {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/*
+ * 一行资料 —— 点哪改哪。
+ *
+ * 不用「编辑资料」模式开关：社交软件都是逐字段就地编辑，
+ * 用户不用先判断「我现在在不在编辑态」。
+ */
+.profile-field {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 4px 0;
+  gap: 14px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
 }
 
-.profile-row-label {
-  font-size: 13px;
+.profile-field:last-child {
+  border-bottom: none;
+}
+
+.profile-field.is-editing {
+  flex-wrap: wrap;
+  background: var(--brand-softer);
+}
+
+.profile-field-label {
+  width: 72px;
+  flex-shrink: 0;
+  font-size: 14px;
   color: var(--text-secondary);
 }
 
-.profile-row-value {
+/*
+ * 值本身可点 —— 点文字就进编辑。
+ *
+ * 不用另摆一个铅笔小图标要求用户精确点到 ——
+ * 直接点文字更符合直觉，跟群名那边（点标题变输入框）手感一致。
+ */
+.profile-field-value {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 7px;
+  margin-left: -7px;
+  text-align: left;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition), color var(--transition);
+}
+
+.profile-field-value:hover {
+  background: var(--bg-hover);
+  color: var(--brand);
+}
+
+.profile-field-value:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+/* 没填的值 —— 灰一点，提示「还没填」。 */
+.profile-field-value.is-empty {
+  color: var(--text-tertiary);
+}
+
+/* 就地编辑的输入框 —— 长得跟普通文字差不多，不打断视觉。 */
+.profile-field-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 9px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.profile-field-actions {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.profile-field-btn {
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition), color var(--transition);
+}
+
+.profile-field-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.profile-field-btn.is-primary {
+  color: var(--text-inverse);
+  background: var(--brand);
+}
+
+.profile-field-btn.is-primary:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+.profile-field-btn:disabled {
+  opacity: 0.6;
+}
+
+/* 设置行 —— 带 › 的导航项 */
+.profile-setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+
+.profile-setting:last-child {
+  border-bottom: none;
+}
+
+.profile-setting:hover {
+  background: var(--bg-hover);
+}
+
+.profile-setting-icon {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+}
+
+.profile-setting-label {
+  flex: 1;
   font-size: 14px;
 }
+
+.profile-setting-chevron {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-tertiary);
+}
+
+/* 危险操作 —— 退出登录。红色图标 + 红字，跟常规设置一眼分得开。 */
+.profile-setting.is-danger {
+  color: var(--danger);
+}
+
+.profile-setting.is-danger .profile-setting-icon {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.profile-setting.is-danger:hover {
+  background: var(--danger-soft);
+}
+
+/* ─────────────── 用户资料弹窗 ─────────────── */
 
 /* ─────────────── 用户资料弹窗 ─────────────── */
 

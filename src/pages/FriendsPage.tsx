@@ -1,5 +1,5 @@
 /** 好友页 —— 好友列表 + 申请收件箱。 */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Modal } from '../components/Modal'
 import { toast } from '../utils/toast'
@@ -12,7 +12,7 @@ import { errorMessage } from '../utils/errors'
 import { formatConversationTime } from '../utils/format'
 
 interface FriendsPageProps {
-  /** 点好友「发消息」时回调。 */
+  /** 点好友时回调 —— 直接开聊。 */
   onStartChat: (friend: FriendInfo) => void
 }
 
@@ -29,6 +29,19 @@ export function FriendsPage({ onStartChat }: FriendsPageProps) {
   /** 查无此人。 */
   const [addNotFound, setAddNotFound] = useState(false)
   const [addSearching, setAddSearching] = useState(false)
+  /**
+   * 展开了「⋯」菜单的好友。
+   *
+   * 好友列表里每一行都摆「发消息 / 删除」两个按钮太吵了 ——
+   * 微信、QQ、Telegram 都是「点头像/点整行 = 发消息」，
+   * 其余操作收进「⋯」菜单里，鼠标移上去才出现。
+   *
+   * 存 uid 而不是整行对象：同一好友可能同时出现在「好友」和「申请」两个 tab，
+   * 存 uid 才能保证两个 tab 的菜单状态互不干扰。
+   */
+  const [menuFor, setMenuFor] = useState<string | null>(null)
+  /** 待删除的好友 —— 删之前先弹确认。 */
+  const [removing, setRemoving] = useState<FriendInfo | null>(null)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -49,6 +62,31 @@ export function FriendsPage({ onStartChat }: FriendsPageProps) {
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  /**
+   * 点菜单外面就收起菜单。
+   *
+   * 没有这个的话菜单会一直挂着，直到用户点「⋯」自己关掉 —— 挡着别人的头像。
+   */
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menuFor) return
+    const onPointerDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuFor(null)
+      }
+    }
+    // Escape 也能关 —— 键盘用户不能只有鼠标一条路。
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuFor(null)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuFor])
 
   const handleAccept = async (request: FriendInfo) => {
     try {
@@ -74,6 +112,7 @@ export function FriendsPage({ onStartChat }: FriendsPageProps) {
     try {
       await friendApi.removeFriend(friend.friend_id)
       toast('已删除好友', 'success')
+      setRemoving(null)
       await loadAll()
     } catch (e) {
       toast(errorMessage(e, '删除失败'), 'error')
@@ -176,20 +215,70 @@ export function FriendsPage({ onStartChat }: FriendsPageProps) {
             )}
             {friends.map((friend) => (
               <div key={friend.friend_id} className="friend-item">
-                <Avatar src={friend.avatar} name={friend.nickname} size={44} />
-                <div className="friend-info">
-                  <span className="friend-name">{friend.nickname || '未知用户'}</span>
-                  <span className="friend-meta">
-                    好友于 {formatConversationTime(friend.created_at_friend)}
-                  </span>
-                </div>
-                <div className="friend-actions">
-                  <button className="btn btn-ghost btn-sm" onClick={() => onStartChat(friend)}>
-                    发消息
+                {/*
+                  整行就是「发消息」——
+                  好友列表的主功能是开聊，不是管理，所以主操作应该占满整行可点区域。
+                  键盘用户用 Tab 聚焦后按 Enter 也能触发。
+                */}
+                <button
+                  className="friend-main"
+                  onClick={() => onStartChat(friend)}
+                  title={`与 ${friend.nickname || '好友'} 聊天`}
+                >
+                  <Avatar src={friend.avatar} name={friend.nickname} size={44} />
+                  <div className="friend-info">
+                    <span className="friend-name">{friend.nickname || '未知用户'}</span>
+                    <span className="friend-meta">
+                      好友于 {formatConversationTime(friend.created_at_friend)}
+                    </span>
+                  </div>
+                </button>
+
+                {/*
+                  「⋯」收着次要操作。删除是破坏性的，藏在菜单里比摆在行尾安全 ——
+                  微信、Telegram、Discord 都是这么做的。
+                */}
+                <div className="friend-menu-wrap" ref={menuFor === friend.friend_id ? menuRef : undefined}>
+                  <button
+                    className="icon-btn friend-menu-trigger"
+                    onClick={() =>
+                      setMenuFor(menuFor === friend.friend_id ? null : friend.friend_id)
+                    }
+                    aria-label="更多操作"
+                    aria-haspopup="menu"
+                    aria-expanded={menuFor === friend.friend_id}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="5" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="12" cy="19" r="2" />
+                    </svg>
                   </button>
-                  <button className="btn btn-ghost btn-sm is-danger" onClick={() => handleRemove(friend)}>
-                    删除
-                  </button>
+
+                  {menuFor === friend.friend_id && (
+                    <div className="friend-menu" role="menu">
+                      <button
+                        className="friend-menu-item"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuFor(null)
+                          onStartChat(friend)
+                        }}
+                      >
+                        发消息
+                      </button>
+                      <button
+                        className="friend-menu-item is-danger"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuFor(null)
+                          setRemoving(friend)
+                        }}
+                      >
+                        删除好友
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -304,6 +393,32 @@ export function FriendsPage({ onStartChat }: FriendsPageProps) {
             </label>
           )}
         </form>
+      </Modal>
+
+      {/* 删除好友要确认 —— 删了就没了，不能像以前那样一个「删除」按钮直接生效。 */}
+      <Modal
+        open={removing !== null}
+        title="删除好友"
+        narrow
+        onClose={() => setRemoving(null)}
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setRemoving(null)}>
+              取消
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() => removing && handleRemove(removing)}
+            >
+              删除
+            </button>
+          </>
+        }
+      >
+        <p className="confirm-text">
+          确定要删除好友「{removing?.nickname || '未知用户'}」吗？
+          删除后聊天记录仍会保留，但你们不再是好友了。
+        </p>
       </Modal>
     </div>
   )

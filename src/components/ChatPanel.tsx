@@ -2,6 +2,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MessageBubble } from './MessageBubble'
 import { Avatar } from './Avatar'
+import { GroupHeaderEditor } from './GroupHeaderEditor'
 import { useMessageStore } from '../stores/message'
 import { useAuthStore } from '../stores/auth'
 import { useConversationStore } from '../stores/conversation'
@@ -65,9 +66,11 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
   const profileOf = (userId: string) => {
     const index = conversation.member_ids.indexOf(userId)
     if (index < 0) return { nickname: '', avatar: '' }
+    // ?? 兜底的是 undefined 本身 —— protojson 会把空的 repeated 字段整个省略，
+    // 拿到的不是 [] 而是 undefined，下标读它会抛 TypeError 直接白屏。
     return {
-      nickname: conversation.member_nicknames[index] ?? '',
-      avatar: conversation.member_avatars[index] ?? '',
+      nickname: conversation.member_nicknames?.[index] ?? '',
+      avatar: conversation.member_avatars?.[index] ?? '',
     }
   }
 
@@ -169,24 +172,30 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
   return (
     <section className="chat-panel">
       <header className="chat-header">
-        <Avatar
-          src={conversationAvatar(conversation, selfId)}
-          name={title}
-          size={38}
-          online={peerId ? onlineMap[peerId] : undefined}
-        />
-        <div className="chat-header-info">
-          <h2 className="chat-title u-truncate">{title}</h2>
-          <p className="chat-subtitle">
-            {conversation.type === ConversationType.Group
-              ? `${conversation.member_count} 名成员`
-              : peerId && onlineMap[peerId] !== undefined
-                ? onlineMap[peerId]
-                  ? '在线'
-                  : '离线'
-                : '单聊'}
-          </p>
-        </div>
+        {/* 群聊的头部可以直接改群名和群头像（飞书那种交互）；
+            单聊的头部跟对方相关，不给改。 */}
+        {conversation.type === ConversationType.Group ? (
+          <GroupHeaderEditor conversation={conversation} selfId={selfId} />
+        ) : (
+          <>
+            <Avatar
+              src={conversationAvatar(conversation, selfId)}
+              name={title}
+              size={38}
+              online={peerId ? onlineMap[peerId] : undefined}
+            />
+            <div className="chat-header-info">
+              <h2 className="chat-title u-truncate">{title}</h2>
+              <p className="chat-subtitle">
+                {peerId && onlineMap[peerId] !== undefined
+                  ? onlineMap[peerId]
+                    ? '在线'
+                    : '离线'
+                  : '单聊'}
+              </p>
+            </div>
+          </>
+        )}
         <button className="icon-btn" onClick={onOpenDetails} title="会话详情">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="12" cy="12" r="9" />
