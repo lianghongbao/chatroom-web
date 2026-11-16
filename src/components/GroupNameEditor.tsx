@@ -108,24 +108,45 @@ export function GroupNameEditor({
   }
 
   return (
-    <span
-      className={isOwner ? `${displayClassName} is-editable` : displayClassName}
-      onClick={isOwner ? () => setEditing(true) : undefined}
-      title={isOwner ? '点击修改群名' : undefined}
-      role={isOwner ? 'button' : undefined}
-      tabIndex={isOwner ? 0 : undefined}
-      onKeyDown={
-        isOwner
-          ? (e: React.KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                setEditing(true)
+    <span className="group-name-row">
+      <span
+        className={isOwner ? `${displayClassName} is-editable` : displayClassName}
+        onClick={isOwner ? () => setEditing(true) : undefined}
+        title={isOwner ? '点击修改群名' : undefined}
+        role={isOwner ? 'button' : undefined}
+        tabIndex={isOwner ? 0 : undefined}
+        onKeyDown={
+          isOwner
+            ? (e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setEditing(true)
+                }
               }
-            }
-          : undefined
-      }
-    >
-      {renderDisplay(conversation.name || '未命名群聊')}
+            : undefined
+        }
+      >
+        {renderDisplay(conversation.name || '未命名群聊')}
+      </span>
+      {/*
+        铅笔图标 —— 明说「群名能改」。
+
+        只靠 hover 变色不够：不动鼠标的人根本看不出来这里能点，
+        会以为群名是只读的。微信、QQ、LinkedIn 都摆一个常驻的铅笔。
+      */}
+      {isOwner && (
+        <button
+          className="group-name-edit"
+          onClick={() => setEditing(true)}
+          title="修改群名"
+          aria-label="修改群名"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
+      )}
     </span>
   )
 }

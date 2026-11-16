@@ -9,8 +9,21 @@ import * as userApi from '../api/user'
 import { errorMessage } from '../utils/errors'
 import { formatFullDateTime } from '../utils/format'
 
-/** 正在就地编辑的字段。null = 没有字段在编辑。 */
-type EditingField = 'nickname' | 'phone' | 'email' | null
+/**
+ * 正在就地编辑的字段。null = 没有字段在编辑。
+ *
+ * 注意「个人资料」区里的昵称行和头图里的昵称是**两个独立的入口** ——
+ * 昵称可以在这两处改。共用一个 editing 状态的话，在一处进编辑会连带
+ * 另一处也变成编辑态，页面上同时冒出两个输入框。
+ */
+type EditingField = 'nickname-row' | 'nickname-hero' | 'phone' | 'email' | null
+
+/** 编辑的字段实际是哪个键。头图和列表行的昵称都对应 nickname。 */
+function fieldKey(field: EditingField): 'nickname' | 'phone' | 'email' | null {
+  if (field === 'nickname-row' || field === 'nickname-hero') return 'nickname'
+  if (field === 'phone' || field === 'email') return field
+  return null
+}
 
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user)
@@ -34,6 +47,8 @@ export function ProfilePage() {
 
   // 隐藏的 file input —— 点头像时用 ref 触发它弹系统选择器。
   const fileRef = useRef<HTMLInputElement>(null)
+  // 头像旁边的昵称输入框。
+  const nickInputRef = useRef<HTMLInputElement>(null)
 
   if (!user) return null
 
@@ -89,11 +104,13 @@ export function ProfilePage() {
    */
   const saveField = async () => {
     if (!editing) return
+    const key = fieldKey(editing)
+    if (!key) return
     const value = draft.trim()
     const current =
-      editing === 'nickname'
+      key === 'nickname'
         ? (user.nickname ?? '')
-        : editing === 'phone'
+        : key === 'phone'
           ? (user.phone ?? '')
           : (user.email ?? '')
 
@@ -105,11 +122,11 @@ export function ProfilePage() {
     setSaving(true)
     try {
       // 昵称不能是空串 —— 后端会拒（INVALID_ARGUMENT），这里先拦一道。
-      if (editing === 'nickname' && !value) {
+      if (key === 'nickname' && !value) {
         toast('昵称不能为空', 'error')
         return
       }
-      await updateProfile({ [editing]: value } as {
+      await updateProfile({ [key]: value } as {
         nickname?: string
         phone?: string
         email?: string
@@ -254,13 +271,13 @@ export function ProfilePage() {
             title={uploading ? '上传中…' : '点击更换头像'}
           />
           <button
-            className="profile-avatar-badge"
+            className="avatar-badge is-lg"
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             title={uploading ? '上传中…' : '更换头像'}
             aria-label="更换头像"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z" />
               <circle cx="12" cy="13" r="3.5" />
             </svg>
@@ -268,7 +285,61 @@ export function ProfilePage() {
         </div>
 
         <div className="profile-identity">
-          <h2 className="profile-nickname">{user.nickname || user.username}</h2>
+          {/*
+            头像旁边的昵称 —— 直接点就变输入框。
+
+            昵称是「我是谁」的主标识，就摆在头像旁边 ——
+            想改昵称的人第一眼看的就是这里，不该还要往下翻到「个人资料」区。
+            下面的「个人资料」行保留着，给习惯按列表找的人用。
+          */}
+          {editing === 'nickname-hero' ? (
+            <input
+              ref={nickInputRef}
+              className="profile-nickname-input"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={saveField}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  saveField()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  cancelEdit()
+                }
+              }}
+              maxLength={64}
+              autoFocus
+              aria-label="昵称"
+            />
+          ) : (
+            <div className="profile-nickname-row">
+              <h2
+                className="profile-nickname is-editable"
+                onClick={() => startEdit('nickname-hero', user.nickname ?? '')}
+                title="点击修改昵称"
+              >
+                {user.nickname || user.username}
+              </h2>
+              {/*
+                铅笔图标 —— 明说「这里能改」。
+
+                只靠 hover 变色不够：不动鼠标的人根本看不出来昵称能点。
+                微信、QQ、LinkedIn 的资料页都摆一个常驻的铅笔。
+              */}
+              <button
+                className="profile-field-edit"
+                onClick={() => startEdit('nickname-hero', user.nickname ?? '')}
+                title="修改昵称"
+                aria-label="修改昵称"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </button>
+            </div>
+          )}
           <p className="profile-username">@{user.username}</p>
           {user.created_at > 0 && (
             <p className="profile-joined">
@@ -297,7 +368,7 @@ export function ProfilePage() {
       <section className="profile-section">
         <h3 className="profile-section-title">个人资料</h3>
         <div className="profile-fields">
-          {renderField('nickname', '昵称', user.nickname ?? '', '你的昵称')}
+          {renderField('nickname-row', '昵称', user.nickname ?? '', '你的昵称')}
           {renderField('phone', '手机号', user.phone ?? '', '11 位手机号', 'tel')}
           {renderField('email', '邮箱', user.email ?? '', 'alice@example.com', 'email')}
         </div>

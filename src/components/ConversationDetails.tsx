@@ -171,7 +171,7 @@ export function ConversationDetails({
                 conversation={conversation}
                 selfId={selfId}
                 size={56}
-                badgeSize={22}
+                badgeSize="md"
               />
               <div className="details-group-identity">
                 <GroupNameEditor

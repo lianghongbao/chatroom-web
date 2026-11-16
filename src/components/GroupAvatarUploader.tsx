@@ -16,6 +16,17 @@ import type { ConversationInfo } from '../api/conversation'
 import { useConversationStore } from '../stores/conversation'
 import { errorMessage } from '../utils/errors'
 
+/**
+ * 角标尺寸档位（像素）—— 跟 CSS 里的 .avatar-badge.is-* 一一对应。
+ *
+ * 图标大小按角标的 0.66 倍算，视觉上刚好填满。
+ */
+export const BADGE_PIXELS = { sm: 18, md: 22, lg: 28 } as const
+const BADGE_ICON_RATIO = 0.66
+
+/** 角标尺寸档位的类型。 */
+export type BadgeSize = keyof typeof BADGE_PIXELS
+
 interface GroupAvatarUploaderProps {
   /** 当前会话。 */
   conversation: ConversationInfo
@@ -23,15 +34,15 @@ interface GroupAvatarUploaderProps {
   selfId: string
   /** 头像边长。 */
   size?: number
-  /** 角标大小跟着头像走 —— 大头像配大角标，小头像配小角标。 */
-  badgeSize?: number
+  /** 角标尺寸档位 —— sm / md / lg。跟个人资料页共用同一套样式。 */
+  badgeSize?: BadgeSize
 }
 
 export function GroupAvatarUploader({
   conversation,
   selfId,
   size = 38,
-  badgeSize = 18,
+  badgeSize = 'sm',
 }: GroupAvatarUploaderProps) {
   const upsert = useConversationStore((s) => s.upsert)
   const [uploading, setUploading] = useState(false)
@@ -89,16 +100,15 @@ export function GroupAvatarUploader({
         {/* 相机角标 —— 明说「点这里能换头像」，别让用户自己猜。 */}
         {isOwner && (
           <button
-            className="group-avatar-badge"
-            style={{ width: badgeSize, height: badgeSize }}
+            className={`avatar-badge is-${badgeSize}`}
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             title={uploading ? '上传中…' : '更换群头像'}
             aria-label="更换群头像"
           >
             <svg
-              width={Math.round(badgeSize * 0.66)}
-              height={Math.round(badgeSize * 0.66)}
+              width={Math.round(BADGE_ICON_RATIO * BADGE_PIXELS[badgeSize])}
+              height={Math.round(BADGE_ICON_RATIO * BADGE_PIXELS[badgeSize])}
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

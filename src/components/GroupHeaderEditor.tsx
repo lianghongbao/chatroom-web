@@ -24,7 +24,7 @@ interface GroupHeaderEditorProps {
 export function GroupHeaderEditor({ conversation, selfId }: GroupHeaderEditorProps) {
   return (
     <>
-      <GroupAvatarUploader conversation={conversation} selfId={selfId} size={38} badgeSize={18} />
+      <GroupAvatarUploader conversation={conversation} selfId={selfId} size={38} badgeSize="sm" />
 
       {/* 群名：点一下就地编辑。飞书那种「单击变输入框」的交互。 */}
       <div className="chat-header-info">

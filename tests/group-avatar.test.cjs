@@ -153,14 +153,31 @@ function makePng(file) {
     const editableTitle = await pageA.locator('.chat-title.is-editable').count()
     check('群主的群名可点（带 is-editable 标记）', editableTitle > 0, `count=${editableTitle}`)
 
+    // 群名旁边挂铅笔 —— 明说「群名能改」，不然用户以为群名是只读的
+    const namePencil = await pageA.locator('.chat-header .group-name-edit').count()
+    check('群名旁边有铅笔图标', namePencil === 1, `count=${namePencil}`)
+    const pencilOpacity = await pageA
+      .locator('.chat-header .group-name-edit')
+      .evaluate((el) => getComputedStyle(el).opacity)
+    check('铅笔不是 hover 才出现', Number(pencilOpacity) > 0.9, `opacity=${pencilOpacity}`)
+
     // 群头像右下角挂相机角标 —— 明说「点这里能换头像」
-    const badgeCount = await pageA.locator('.group-avatar-badge').count()
+    const badgeCount = await pageA.locator('.avatar-badge').count()
     check('群主能看到群头像的相机角标', badgeCount === 1, `count=${badgeCount}`)
 
     await pageA.locator('.chat-title.is-editable').click()
     await pageA.waitForTimeout(500)
     const inputCount = await pageA.locator('.chat-title-input').count()
     check('点群名后就地变输入框', inputCount === 1, `count=${inputCount}`)
+
+    // 铅笔也要能进编辑态
+    await pageA.locator('.chat-title-input').fill('铅笔改的名')
+    await pageA.keyboard.press('Escape')
+    await pageA.waitForTimeout(600)
+    await pageA.locator('.chat-header .group-name-edit').click()
+    await pageA.waitForTimeout(600)
+    const pencilInput = await pageA.locator('.chat-title-input').count()
+    check('点铅笔也能进编辑态', pencilInput === 1, `count=${pencilInput}`)
 
     await pageA.locator('.chat-title-input').fill('改过的群名')
     await pageA.keyboard.press('Enter')
@@ -243,7 +260,7 @@ function makePng(file) {
 
     // --- 5b. 但「群聊信息」面板里的头像和群名本身就能改 ---
     console.log('\n=== 5b. 群聊信息面板里能改头像和群名 ===')
-    const panelBadge = await pageA.locator('.modal .group-avatar-badge').count()
+    const panelBadge = await pageA.locator('.modal .avatar-badge').count()
     check('群聊信息面板的头像有相机角标', panelBadge === 1, `count=${panelBadge}`)
     const panelFileInput = await pageA.locator('.modal input[type="file"]').count()
     check('群聊信息面板有头像上传入口', panelFileInput === 1, `count=${panelFileInput}`)
@@ -300,16 +317,19 @@ function makePng(file) {
     const nonOwnerEditable = await pageB.locator('.chat-title.is-editable').count()
     check('非群主的群名不可点', nonOwnerEditable === 0, `count=${nonOwnerEditable}`)
 
+    const nonOwnerPencil = await pageB.locator('.chat-header .group-name-edit').count()
+    check('非群主看不到群名的铅笔', nonOwnerPencil === 0, `count=${nonOwnerPencil}`)
+
     const nonOwnerFileInput = await pageB.locator('.chat-header input[type="file"]').count()
     check('非群主看不到头像上传入口', nonOwnerFileInput === 0, `count=${nonOwnerFileInput}`)
 
-    const nonOwnerBadge = await pageB.locator('.group-avatar-badge').count()
+    const nonOwnerBadge = await pageB.locator('.avatar-badge').count()
     check('非群主看不到相机角标', nonOwnerBadge === 0, `count=${nonOwnerBadge}`)
 
     // 群聊信息面板里同样没有入口
     await pageB.locator('button[title="会话详情"]').click()
     await pageB.waitForTimeout(1200)
-    const nonOwnerPanelBadge = await pageB.locator('.modal .group-avatar-badge').count()
+    const nonOwnerPanelBadge = await pageB.locator('.modal .avatar-badge').count()
     check('非群主在群聊信息面板里也看不到角标', nonOwnerPanelBadge === 0, `count=${nonOwnerPanelBadge}`)
     const nonOwnerPanelEditable = await pageB.locator('.modal .details-group-name.is-editable').count()
     check('非群主在群聊信息面板里也不能改群名', nonOwnerPanelEditable === 0, `count=${nonOwnerPanelEditable}`)

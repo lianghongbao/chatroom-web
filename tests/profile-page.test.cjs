@@ -39,7 +39,7 @@ async function uiRegister(page, username, password) {
 /** 读铅笔图标的实际不透明度 —— 确认它不是 hover 才出现。 */
 async function pageA_opacity(page) {
   return page
-    .locator('.profile-field-edit')
+    .locator('.profile-field .profile-field-edit')
     .first()
     .evaluate((el) => getComputedStyle(el).opacity)
 }
@@ -93,7 +93,7 @@ function makePng(file) {
     console.log('\n=== 2. 头图区 ===')
     const heroCount = await page.locator('.profile-hero').count()
     check('有头图区', heroCount === 1, `count=${heroCount}`)
-    const badgeCount = await page.locator('.profile-avatar-badge').count()
+    const badgeCount = await page.locator('.avatar-badge').count()
     check('头像上有相机角标', badgeCount === 1, `count=${badgeCount}`)
     const fileInput = await page.locator('.profile-hero ~ input[type="file"], input[type="file"]').count()
     check('有头像上传的 file input', fileInput > 0, `count=${fileInput}`)
@@ -111,7 +111,7 @@ function makePng(file) {
     check('资料分成了几行', fieldCount >= 3, `count=${fieldCount}`)
 
     // 每一行都有常驻的铅笔 —— 明说「这行能改」
-    const pencilCount = await page.locator('.profile-field-edit').count()
+    const pencilCount = await page.locator('.profile-field .profile-field-edit').count()
     check('每行都有铅笔图标', pencilCount === fieldCount, `${pencilCount}/${fieldCount}`)
     const pencilOpacity = await pageA_opacity(page)
     check('铅笔不是 hover 才出现', pencilOpacity > 0.9, `opacity=${pencilOpacity}`)
@@ -135,7 +135,7 @@ function makePng(file) {
     await page.keyboard.press('Enter')
     await page.waitForTimeout(1500)
 
-    const shownName = await page.locator('.profile-nickname').textContent()
+    const shownName = await page.locator('.profile-nickname').first().textContent()
     check('昵称已更新', shownName === '新昵称测试', shownName || '(无)')
 
     // 后端也存了
@@ -147,6 +147,39 @@ function makePng(file) {
       return d.nickname
     })
     check('后端存的昵称也更新了', backendName === '新昵称测试', backendName)
+
+    // --- 4b. 头像旁边的昵称直接能改 ---
+    console.log('\n=== 4b. 头像旁边的昵称直接能改 ===')
+    const heroNick = await page.locator('.profile-hero .profile-nickname').count()
+    check('头像旁边有昵称', heroNick === 1, `count=${heroNick}`)
+    const heroEditable = await page.locator('.profile-hero .profile-nickname.is-editable').count()
+    check('头像旁边的昵称可点', heroEditable === 1, `count=${heroEditable}`)
+
+    await page.locator('.profile-hero .profile-nickname.is-editable').click()
+    await page.waitForTimeout(600)
+    const heroInput = await page.locator('.profile-nickname-input').count()
+    check('点昵称就变输入框', heroInput === 1, `count=${heroInput}`)
+
+    await page.locator('.profile-nickname-input').fill('头图改的昵称')
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(1800)
+
+    const heroName = await page.locator('.profile-hero .profile-nickname').textContent()
+    check('头图昵称已更新', heroName === '头图改的昵称', heroName || '(无)')
+    // 「个人资料」区那行也跟着更新 —— 两处显示的是同一个值
+    const listName = await page
+      .locator('.profile-field:has-text("昵称") .profile-field-value')
+      .textContent()
+      .catch(() => null)
+    check('下面的「个人资料」行同步更新', listName === '头图改的昵称', listName || '(无)')
+    const backendName2 = await page.evaluate(async () => {
+      const t = localStorage.getItem('chatroom.access_token')
+      const d = await (await fetch('/api/user/info', {
+        headers: { Authorization: `Bearer ${t}` },
+      })).json()
+      return d.nickname
+    })
+    check('后端存的也是新昵称', backendName2 === '头图改的昵称', backendName2)
 
     // --- 5. Escape 取消 ---
     console.log('\n=== 5. Escape 取消编辑 ===')
