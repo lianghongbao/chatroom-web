@@ -23,6 +23,8 @@ export interface ConversationInfo {
   id: number
   type: ConversationType
   name: string
+  /** 群头像地址。单聊为空串。 */
+  avatar: string
   owner_id: string
   member_count: number
   member_ids: string[]
@@ -104,11 +106,59 @@ export function leaveConversation(conversationId: number) {
   return post('conversation', '/leave', { conversation_id: conversationId })
 }
 
-/** 改群名。仅群主可调用，name 是新群名。 */
-export function updateConversation(conversationId: number, name: string) {
+/**
+ * 改群名 / 群头像。仅群主可调用，单聊不支持。
+ *
+ * name 和 avatar 都留空 = 无操作，后端返 INVALID_ARGUMENT。
+ * 留空的字段表示「不改」—— 改头像时不想连带改名字就传空串。
+ */
+export function updateConversation(
+  conversationId: number,
+  name: string,
+  avatar = '',
+) {
   return post<{ conversation: ConversationInfo }>('conversation', '/update', {
     conversation_id: conversationId,
     name,
+    avatar,
+  })
+}
+
+/**
+ * 群头像直传凭证 —— OSS PostObject 表单。
+ *
+ * 形状跟 user 服务的 UploadToken 一样，但字段是 group avatar 专用的。
+ */
+export interface GroupAvatarUploadToken {
+  /** OSS 上传地址，POST 到这里。 */
+  host: string
+  /** 表单字段，原样塞进 FormData。值不能改，改了签名对不上。 */
+  fields: Record<string, string>
+  /** 完整 object key。 */
+  file_key: string
+  /** 上传后可访问的地址 —— 把它塞进 UpdateConversation 的 avatar。 */
+  public_url: string
+  /** 过期时间，Unix 秒。 */
+  expire_at: number
+  /** 允许的最大字节数，0 表示不限。 */
+  max_size: number
+}
+
+/**
+ * 签发群头像直传凭证。仅群主可调用，单聊不支持。
+ *
+ * ext 是文件后缀，不带点。后缀不在白名单内时返 400。
+ *
+ * 凭证把 object key 前缀锁死在 group_avatar/<会话ID>/ ——
+ * 客户端拿着临时凭证也写不进别的群目录。
+ */
+export function getGroupAvatarUploadToken(
+  conversationId: number,
+  ext: string,
+): Promise<GroupAvatarUploadToken> {
+  return post<GroupAvatarUploadToken>('conversation', '/avatar/upload_token', {
+    conversation_id: conversationId,
+    ext,
   })
 }
 

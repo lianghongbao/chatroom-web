@@ -231,9 +231,13 @@ async function main() {
   // 关掉网关进程 —— 所有 WS 连接被服务端断开，客户端应当触发重连。
   const { execSync } = require('child_process')
   try {
-    // 按 /proc/<pid>/comm 找 —— comm 被截断到 15 字符，完整名 pkill 匹配不上。
+    // 按端口找 PID —— 网关现在是 `go run ./cmd/server` 起的，进程名是 "server"，
+    // 靠 comm 前缀匹配（老的 cr-ws-gateway-*）已经匹配不到了。
+    // 父进程 go run 也会跟着挂掉，但子进程要先杀，否则端口还被占着。
     execSync(
-      `for p in /proc/[0-9]*; do c=$(cat $p/comm 2>/dev/null); case "$c" in cr-ws-gateway-*) kill \${p#/proc/};; esac; done`,
+      `pids=$(ss -tlnp 2>/dev/null | grep ':8004 ' | grep -oP 'pid=\\K[0-9]+' | sort -u); ` +
+        `for pid in $pids; do kill $pid 2>/dev/null; done; ` +
+        `sleep 1; for pid in $pids; do kill -9 $pid 2>/dev/null; done`,
       { stdio: 'ignore', shell: '/bin/bash' },
     )
   } catch {
@@ -272,10 +276,27 @@ async function main() {
     DB_SOURCE: 'root:123456@tcp(127.0.0.1:3306)/test?parseTime=true&loc=Local&charset=utf8mb4',
     AUTH_JWT_SECRET: 'chatroom-dev-jwt-secret-please-change-in-production-32bytes',
     AUTH_INTERNAL_SECRET: 'chatroom-dev-internal-secret-please-change-in-production',
-    OTEL_EXPORTER_OTLP_ENDPOINT: '127.0.0.1:4317',
+    // 必须带 http:// —— OTel SDK 的 envconfig 用 url.Parse 解析，裸 host:port 会失败
+    OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4317',
+    // 网关注册到 nacos 的服务名，靠它被别的服务发现
+    NACOS_SERVICE_NAME: 'chatroom-ws-gateway',
   }
-  const gateway = spawn('/tmp/cr-ws-gateway-service', {
-    cwd: '/mnt/d/Learn/go-project/chatroom/ws-gateway-service',
+  // 网关现在在 app/ws-gateway/service 下（仓库结构改过，老路径 ws-gateway-service
+  // 已经不存在了）。先 build 出二进制再跑 —— `go run` 的进程名是 "server"，
+  // 后面再按端口找 PID 杀的时候不好认。
+  const GATEWAY_DIR = '/mnt/d/Learn/go-project/chatroom/app/ws-gateway/service'
+  const GATEWAY_BIN = '/tmp/cr-ws-gateway-service'
+  try {
+    execSync(`cd ${GATEWAY_DIR} && go build -o ${GATEWAY_BIN} ./cmd/server`, {
+      stdio: 'ignore',
+      shell: '/bin/bash',
+    })
+  } catch (e) {
+    console.log('  ! 网关 build 失败，跳过重启用例')
+    throw e
+  }
+  const gateway = spawn(GATEWAY_BIN, {
+    cwd: GATEWAY_DIR,
     env,
     stdio: ['ignore', fs.openSync('/tmp/ws-gateway-test.log', 'w'), fs.openSync('/tmp/ws-gateway-test.log', 'a')],
     detached: true,

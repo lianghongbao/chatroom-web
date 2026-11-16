@@ -26,12 +26,12 @@ export function conversationTitle(
   return nickname || '未命名会话'
 }
 
-/** 单聊时对方的头像。群聊没有单一头像。selfId 是当前用户 uid。 */
+/** 单聊时对方的头像；群聊返回群头像（没设过就是空串）。selfId 是当前用户 uid。 */
 export function conversationAvatar(
   conversation: ConversationInfo,
   selfId: string,
 ): string {
-  if (conversation.type === ConversationType.Group) return ''
+  if (conversation.type === ConversationType.Group) return conversation.avatar || ''
   const index = conversation.member_ids.findIndex((id) => id !== selfId)
   const avatar = index >= 0 ? conversation.member_avatars[index] : ''
   return avatar || ''

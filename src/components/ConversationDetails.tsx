@@ -1,5 +1,5 @@
 /** 会话详情 —— 成员列表、群管理操作。 */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Avatar } from './Avatar'
 import { Modal } from './Modal'
 import { toast } from '../utils/toast'
@@ -47,6 +47,10 @@ export function ConversationDetails({
   const [addTarget, setAddTarget] = useState('')
   const [transferOpen, setTransferOpen] = useState(false)
   const [transferTarget, setTransferTarget] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
+  // 隐藏的 file input —— 群主点群头像时用它弹系统选择器。
+  const avatarFileRef = useRef<HTMLInputElement>(null)
 
   const isGroup = conversation.type === ConversationType.Group
   const isOwner = conversation.owner_id === selfId
@@ -102,6 +106,43 @@ export function ConversationDetails({
       setRenameOpen(false)
     } catch (e) {
       toast(errorMessage(e, '改名失败'), 'error')
+    }
+  }
+
+  const handleAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // 重置 input 的值 —— 选同一个文件两次也要能触发 change。
+    e.target.value = ''
+    if (!file) return
+
+    setUploadingAvatar(true)
+    try {
+      // 群头像的凭证由 conversation 服务自己签 —— 不走 user 服务。
+      const ext = userApi.fileExt(file.name)
+      const token = await conversationApi.getGroupAvatarUploadToken(conversation.id, ext)
+      // 上传前先按后端给的额度拦一道 —— 别浪费一次直传。
+      const tooBig = userApi.checkFileSize(file.size, token.max_size)
+      if (tooBig) {
+        toast(tooBig, 'error')
+        return
+      }
+      const url = await userApi.uploadToOSS(
+        {
+          host: token.host,
+          fields: token.fields,
+          public_url: token.public_url,
+          max_size: token.max_size,
+        } as userApi.UploadToken,
+        file,
+      )
+      // 只改头像，名字传空串 —— 后端把空串当「不改」。
+      const res = await conversationApi.updateConversation(conversation.id, '', url)
+      upsert(res.conversation)
+      toast('群头像已更新', 'success')
+    } catch (err) {
+      toast(errorMessage(err, '群头像上传失败'), 'error')
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
@@ -178,11 +219,27 @@ export function ConversationDetails({
         <div className="details">
           {isGroup && (
             <div className="details-group-header">
-              <Avatar name={conversation.name} size={56} />
+              {/* 群头像就是上传入口 —— 仅群主可点，其他成员点不动。 */}
+              <Avatar
+                src={conversation.avatar}
+                name={conversation.name}
+                size={56}
+                onClick={isOwner ? () => avatarFileRef.current?.click() : undefined}
+                title={isOwner ? (uploadingAvatar ? '上传中…' : '点击更换群头像') : undefined}
+              />
               <div>
                 <h3 className="details-group-name">{conversation.name || '未命名群聊'}</h3>
                 <p className="details-group-count">{conversation.member_count} 名成员</p>
               </div>
+              {/* 隐藏的 file input —— 群主点群头像就弹系统选择器。 */}
+              <input
+                ref={avatarFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleAvatarPick}
+                disabled={uploadingAvatar}
+                hidden
+              />
             </div>
           )}
 
@@ -248,6 +305,13 @@ export function ConversationDetails({
                   <>
                     <button className="btn btn-ghost btn-block" onClick={() => setRenameOpen(true)}>
                       修改群名
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-block"
+                      onClick={() => avatarFileRef.current?.click()}
+                      disabled={uploadingAvatar}
+                    >
+                      {uploadingAvatar ? '上传中…' : '设置群头像'}
                     </button>
                     <button
                       className="btn btn-ghost btn-block"
