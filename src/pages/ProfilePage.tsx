@@ -12,15 +12,14 @@ import { formatFullDateTime } from '../utils/format'
 /**
  * 正在就地编辑的字段。null = 没有字段在编辑。
  *
- * 注意「个人资料」区里的昵称行和头图里的昵称是**两个独立的入口** ——
- * 昵称可以在这两处改。共用一个 editing 状态的话，在一处进编辑会连带
- * 另一处也变成编辑态，页面上同时冒出两个输入框。
+ * 昵称只有一个编辑入口 —— 头图里头像旁边那个。「个人资料」区不再重复摆
+ * 昵称行：同一份信息在一个页面出现两次，改完不同步就会露馅。
  */
-type EditingField = 'nickname-row' | 'nickname-hero' | 'phone' | 'email' | null
+type EditingField = 'nickname-hero' | 'phone' | 'email' | null
 
-/** 编辑的字段实际是哪个键。头图和列表行的昵称都对应 nickname。 */
+/** 编辑的字段实际是哪个键。 */
 function fieldKey(field: EditingField): 'nickname' | 'phone' | 'email' | null {
-  if (field === 'nickname-row' || field === 'nickname-hero') return 'nickname'
+  if (field === 'nickname-hero') return 'nickname'
   if (field === 'phone' || field === 'email') return field
   return null
 }
@@ -290,7 +289,7 @@ export function ProfilePage() {
 
             昵称是「我是谁」的主标识，就摆在头像旁边 ——
             想改昵称的人第一眼看的就是这里，不该还要往下翻到「个人资料」区。
-            下面的「个人资料」行保留着，给习惯按列表找的人用。
+            「个人资料」区不再重复摆昵称行，这里是**唯一**的昵称编辑入口。
           */}
           {editing === 'nickname-hero' ? (
             <input
@@ -362,13 +361,15 @@ export function ProfilePage() {
       {/*
         个人资料区 —— 一行一项，点哪改哪。
 
+        这里**不放昵称** —— 昵称的编辑入口在上面的头图里（头像旁边），
+        摆两份会让人以为要改两处，也多一次同步不一致的机会。
+
         不用「编辑资料」模式开关，也不在下面再重复显示一遍手机号邮箱。
         同一份信息在一个地方出现两次，改完不同步就会露馅。
       */}
       <section className="profile-section">
         <h3 className="profile-section-title">个人资料</h3>
         <div className="profile-fields">
-          {renderField('nickname-row', '昵称', user.nickname ?? '', '你的昵称')}
           {renderField('phone', '手机号', user.phone ?? '', '11 位手机号', 'tel')}
           {renderField('email', '邮箱', user.email ?? '', 'alice@example.com', 'email')}
         </div>

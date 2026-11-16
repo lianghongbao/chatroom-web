@@ -105,10 +105,16 @@ function makePng(file) {
     const oldActions = await page.locator('.profile-actions').count()
     check('没有旧的 .profile-actions 区块', oldActions === 0, `count=${oldActions}`)
 
-    // --- 4. 逐字段就地编辑 ---
-    console.log('\n=== 4. 逐字段就地编辑 ===')
+    // --- 4. 「个人资料」区不再有昵称行 ---
+    console.log('\n=== 4. 「个人资料」区不再重复摆昵称 ===')
     const fieldCount = await page.locator('.profile-field').count()
-    check('资料分成了几行', fieldCount >= 3, `count=${fieldCount}`)
+    check('资料分成了几行', fieldCount === 2, `count=${fieldCount}`)
+
+    const nickRow = await page.locator('.profile-field:has-text("昵称")').count()
+    check('「个人资料」区没有昵称行了', nickRow === 0, `count=${nickRow}`)
+
+    const nickRowBtn = await page.locator('.profile-field:has-text("昵称") .profile-field-value').count()
+    check('「个人资料」区没有昵称编辑入口', nickRowBtn === 0, `count=${nickRowBtn}`)
 
     // 每一行都有常驻的铅笔 —— 明说「这行能改」
     const pencilCount = await page.locator('.profile-field .profile-field-edit').count()
@@ -116,44 +122,24 @@ function makePng(file) {
     const pencilOpacity = await pageA_opacity(page)
     check('铅笔不是 hover 才出现', pencilOpacity > 0.9, `opacity=${pencilOpacity}`)
 
-    // 点昵称那行的「值」—— 不用找铅笔图标
-    await page.locator('.profile-field:has-text("昵称") .profile-field-value').click()
+    // 手机号那行照样能就地编辑
+    await page.locator('.profile-field:has-text("手机号") .profile-field-value').click()
     await page.waitForTimeout(500)
-    const nickInput = await page.locator('.profile-field.is-editing .profile-field-input').count()
-    check('点昵称旁边的值就变输入框', nickInput === 1, `count=${nickInput}`)
-
-    // 点铅笔也一样能进编辑
+    const phoneInput = await page.locator('.profile-field.is-editing .profile-field-input').count()
+    check('点手机号旁边的值就变输入框', phoneInput === 1, `count=${phoneInput}`)
     await page.locator('.profile-field-btn:has-text("取消")').click()
     await page.waitForTimeout(500)
-    await page.locator('.profile-field:has-text("昵称") .profile-field-edit').click()
-    await page.waitForTimeout(500)
-    const nickInput2 = await page.locator('.profile-field.is-editing .profile-field-input').count()
-    check('点铅笔也能进编辑态', nickInput2 === 1, `count=${nickInput2}`)
 
-    // 顺手把名字改掉 —— 用的是铅笔进的那个编辑框
-    await page.locator('.profile-field.is-editing .profile-field-input').fill('新昵称测试')
-    await page.keyboard.press('Enter')
-    await page.waitForTimeout(1500)
-
-    const shownName = await page.locator('.profile-nickname').first().textContent()
-    check('昵称已更新', shownName === '新昵称测试', shownName || '(无)')
-
-    // 后端也存了
-    const backendName = await page.evaluate(async () => {
-      const t = localStorage.getItem('chatroom.access_token')
-      const d = await (await fetch('/api/user/info', {
-        headers: { Authorization: `Bearer ${t}` },
-      })).json()
-      return d.nickname
-    })
-    check('后端存的昵称也更新了', backendName === '新昵称测试', backendName)
-
-    // --- 4b. 头像旁边的昵称直接能改 ---
+    // --- 4b. 头像旁边的昵称是唯一的昵称入口 ---
     console.log('\n=== 4b. 头像旁边的昵称直接能改 ===')
     const heroNick = await page.locator('.profile-hero .profile-nickname').count()
     check('头像旁边有昵称', heroNick === 1, `count=${heroNick}`)
     const heroEditable = await page.locator('.profile-hero .profile-nickname.is-editable').count()
     check('头像旁边的昵称可点', heroEditable === 1, `count=${heroEditable}`)
+
+    // 页面上只有这一个昵称编辑入口
+    const nickEntryTotal = await page.locator('.profile-nickname.is-editable').count()
+    check('页面上只有一个昵称编辑入口', nickEntryTotal === 1, `count=${nickEntryTotal}`)
 
     await page.locator('.profile-hero .profile-nickname.is-editable').click()
     await page.waitForTimeout(600)
@@ -166,12 +152,6 @@ function makePng(file) {
 
     const heroName = await page.locator('.profile-hero .profile-nickname').textContent()
     check('头图昵称已更新', heroName === '头图改的昵称', heroName || '(无)')
-    // 「个人资料」区那行也跟着更新 —— 两处显示的是同一个值
-    const listName = await page
-      .locator('.profile-field:has-text("昵称") .profile-field-value')
-      .textContent()
-      .catch(() => null)
-    check('下面的「个人资料」行同步更新', listName === '头图改的昵称', listName || '(无)')
     const backendName2 = await page.evaluate(async () => {
       const t = localStorage.getItem('chatroom.access_token')
       const d = await (await fetch('/api/user/info', {
