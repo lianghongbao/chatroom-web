@@ -209,6 +209,23 @@ export function ProfilePage() {
             >
               {current || '未设置，点击添加'}
             </button>
+            {/*
+              铅笔图标 —— 明说「这行能改」。
+
+              只靠 hover 变色是不够的：不动鼠标的人根本看不出来这里能点。
+              微信、QQ、LinkedIn 的资料页都摆一个常驻的铅笔。
+            */}
+            <button
+              className="profile-field-edit"
+              onClick={() => startEdit(field, current)}
+              title={`修改${label}`}
+              aria-label={`修改${label}`}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+            </button>
           </>
         )}
       </div>

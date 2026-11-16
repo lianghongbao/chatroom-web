@@ -36,6 +36,14 @@ async function uiRegister(page, username, password) {
   await page.waitForTimeout(2200)
 }
 
+/** 读铅笔图标的实际不透明度 —— 确认它不是 hover 才出现。 */
+async function pageA_opacity(page) {
+  return page
+    .locator('.profile-field-edit')
+    .first()
+    .evaluate((el) => getComputedStyle(el).opacity)
+}
+
 /** 造一张 2x2 的 PNG。 */
 function makePng(file) {
   const zlib = require('zlib')
@@ -102,12 +110,27 @@ function makePng(file) {
     const fieldCount = await page.locator('.profile-field').count()
     check('资料分成了几行', fieldCount >= 3, `count=${fieldCount}`)
 
+    // 每一行都有常驻的铅笔 —— 明说「这行能改」
+    const pencilCount = await page.locator('.profile-field-edit').count()
+    check('每行都有铅笔图标', pencilCount === fieldCount, `${pencilCount}/${fieldCount}`)
+    const pencilOpacity = await pageA_opacity(page)
+    check('铅笔不是 hover 才出现', pencilOpacity > 0.9, `opacity=${pencilOpacity}`)
+
     // 点昵称那行的「值」—— 不用找铅笔图标
     await page.locator('.profile-field:has-text("昵称") .profile-field-value').click()
     await page.waitForTimeout(500)
     const nickInput = await page.locator('.profile-field.is-editing .profile-field-input').count()
     check('点昵称旁边的值就变输入框', nickInput === 1, `count=${nickInput}`)
 
+    // 点铅笔也一样能进编辑
+    await page.locator('.profile-field-btn:has-text("取消")').click()
+    await page.waitForTimeout(500)
+    await page.locator('.profile-field:has-text("昵称") .profile-field-edit').click()
+    await page.waitForTimeout(500)
+    const nickInput2 = await page.locator('.profile-field.is-editing .profile-field-input').count()
+    check('点铅笔也能进编辑态', nickInput2 === 1, `count=${nickInput2}`)
+
+    // 顺手把名字改掉 —— 用的是铅笔进的那个编辑框
     await page.locator('.profile-field.is-editing .profile-field-input').fill('新昵称测试')
     await page.keyboard.press('Enter')
     await page.waitForTimeout(1500)

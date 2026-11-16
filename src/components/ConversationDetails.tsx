@@ -1,6 +1,8 @@
 /** 会话详情 —— 成员列表、群管理操作。 */
 import { useEffect, useState } from 'react'
 import { Avatar } from './Avatar'
+import { GroupAvatarUploader } from './GroupAvatarUploader'
+import { GroupNameEditor } from './GroupNameEditor'
 import { Modal } from './Modal'
 import { toast } from '../utils/toast'
 import * as conversationApi from '../api/conversation'
@@ -159,14 +161,26 @@ export function ConversationDetails({
         <div className="details">
           {isGroup && (
             <div className="details-group-header">
-              {/* 这里只展示 —— 改群名 / 换头像在聊天头部直接点着改。 */}
-              <Avatar
-                src={conversation.avatar}
-                name={conversation.name}
+              {/*
+                群头像 + 群名在这里**也能改** —— 跟聊天头部是同一套组件。
+
+                用户是从「群聊信息」这个弹窗进来的，光在这里放个不能点的头像，
+                他根本不知道头像能换。所以两处都要给入口。
+              */}
+              <GroupAvatarUploader
+                conversation={conversation}
+                selfId={selfId}
                 size={56}
+                badgeSize={22}
               />
-              <div>
-                <h3 className="details-group-name">{conversation.name || '未命名群聊'}</h3>
+              <div className="details-group-identity">
+                <GroupNameEditor
+                  conversation={conversation}
+                  selfId={selfId}
+                  inputClassName="details-group-name-input"
+                  displayClassName="details-group-name"
+                  renderDisplay={(name) => <h3>{name}</h3>}
+                />
                 <p className="details-group-count">{conversation.member_count} 名成员</p>
               </div>
             </div>

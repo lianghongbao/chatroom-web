@@ -241,11 +241,60 @@ function makePng(file) {
     const transferBtn = await pageA.locator('.modal button:has-text("转让群主")').count()
     check('群管理面板保留了「转让群主」', transferBtn > 0, `count=${transferBtn}`)
 
+    // --- 5b. 但「群聊信息」面板里的头像和群名本身就能改 ---
+    console.log('\n=== 5b. 群聊信息面板里能改头像和群名 ===')
+    const panelBadge = await pageA.locator('.modal .group-avatar-badge').count()
+    check('群聊信息面板的头像有相机角标', panelBadge === 1, `count=${panelBadge}`)
+    const panelFileInput = await pageA.locator('.modal input[type="file"]').count()
+    check('群聊信息面板有头像上传入口', panelFileInput === 1, `count=${panelFileInput}`)
+    const panelEditableName = await pageA.locator('.modal .details-group-name.is-editable').count()
+    check('群聊信息面板的群名可点改', panelEditableName === 1, `count=${panelEditableName}`)
+
+    // 在面板里改群名
+    await pageA.locator('.modal .details-group-name.is-editable').click()
+    await pageA.waitForTimeout(600)
+    const panelInput = await pageA.locator('.modal .details-group-name-input').count()
+    check('点群名后面板里出现输入框', panelInput === 1, `count=${panelInput}`)
+    await pageA.locator('.modal .details-group-name-input').fill('面板改的群名')
+    await pageA.keyboard.press('Enter')
+    await pageA.waitForTimeout(2000)
+
+    const panelName = await pageA.locator('.modal .details-group-name').textContent()
+    check('面板里群名已更新', panelName === '面板改的群名', panelName || '(无)')
+    const headerNameAfter = await pageA.locator('.chat-header .chat-title').textContent()
+    check('聊天头部的群名同步更新', headerNameAfter === '面板改的群名', headerNameAfter || '(无)')
+    const backendNameAfter = await pageA.evaluate(async () => {
+      const t = localStorage.getItem('chatroom.access_token')
+      const l = await (await fetch('/api/conversation/list', {
+        headers: { Authorization: `Bearer ${t}` },
+      })).json()
+      const c = l.conversations.find((x) => x.name === '面板改的群名')
+      return c ? c.name : '(没找到)'
+    })
+    check('后端存的也是新群名', backendNameAfter === '面板改的群名', backendNameAfter)
+
+    // 面板里的头像上传 —— 走的是同一个组件，行为应该一致
+    await pageA.locator('.modal input[type="file"]').first().setInputFiles(tmp)
+    await pageA.waitForTimeout(6000)
+    const avatarAfterPanel = await pageA.evaluate(async (id) => {
+      const t = localStorage.getItem('chatroom.access_token')
+      const r = await fetch(`/api/conversation/get?id=${id}`, {
+        headers: { Authorization: `Bearer ${t}` },
+      })
+      const d = await r.json()
+      return d.conversation?.avatar || ''
+    }, conv)
+    check('从面板上传的群头像也写进了后端', avatarAfterPanel.includes('group_avatar'), avatarAfterPanel)
+
+    await pageA.locator('.modal button:has-text("取消"), .modal-close').first().click().catch(() => {})
+    await pageA.waitForTimeout(1000)
+
     // --- 6. 非群主不能改 ---
     console.log('\n=== 6. 非群主不能改 ===')
     await pageB.goto(BASE, { waitUntil: 'domcontentloaded' })
     await pageB.waitForTimeout(2500)
-    await pageB.locator('.conversation-item', { hasText: '改过的群名' }).first().click()
+    // 群名在第 5b 步被改成「面板改的群名」了 —— 这里要用最新的名字
+    await pageB.locator('.conversation-item', { hasText: '面板改的群名' }).first().click()
     await pageB.waitForTimeout(1000)
 
     const nonOwnerEditable = await pageB.locator('.chat-title.is-editable').count()
@@ -256,6 +305,16 @@ function makePng(file) {
 
     const nonOwnerBadge = await pageB.locator('.group-avatar-badge').count()
     check('非群主看不到相机角标', nonOwnerBadge === 0, `count=${nonOwnerBadge}`)
+
+    // 群聊信息面板里同样没有入口
+    await pageB.locator('button[title="会话详情"]').click()
+    await pageB.waitForTimeout(1200)
+    const nonOwnerPanelBadge = await pageB.locator('.modal .group-avatar-badge').count()
+    check('非群主在群聊信息面板里也看不到角标', nonOwnerPanelBadge === 0, `count=${nonOwnerPanelBadge}`)
+    const nonOwnerPanelEditable = await pageB.locator('.modal .details-group-name.is-editable').count()
+    check('非群主在群聊信息面板里也不能改群名', nonOwnerPanelEditable === 0, `count=${nonOwnerPanelEditable}`)
+    await pageB.locator('.modal button:has-text("取消"), .modal-close').first().click().catch(() => {})
+    await pageB.waitForTimeout(800)
 
     const denied = await pageB.evaluate(async (id) => {
       const t = localStorage.getItem('chatroom.access_token')

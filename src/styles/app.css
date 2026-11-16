@@ -1437,6 +1437,29 @@
   color: var(--text-tertiary);
 }
 
+/*
+ * 铅笔图标 —— 常驻显示。
+ *
+ * 只靠 hover 变色提示「能点」是不够的：不动鼠标的人根本看不出来。
+ * 微信、QQ、LinkedIn 的资料页都摆一个常驻的铅笔。
+ */
+.profile-field-edit {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), background var(--transition);
+}
+
+.profile-field-edit:hover {
+  color: var(--brand);
+  background: var(--bg-hover);
+}
+
 /* 就地编辑的输入框 —— 长得跟普通文字差不多，不打断视觉。 */
 .profile-field-input {
   flex: 1;
@@ -1655,10 +1678,45 @@
   margin-bottom: 16px;
 }
 
+.details-group-identity {
+  min-width: 0;
+}
+
+/* 群名可点就地改 —— 跟聊天头部一个手感。 */
 .details-group-name {
+  display: block;
   margin: 0 0 3px;
   font-size: 16px;
   font-weight: 600;
+}
+
+.details-group-name.is-editable {
+  cursor: text;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: -4px;
+  transition: background-color 0.12s;
+}
+
+.details-group-name.is-editable:hover {
+  background: var(--bg-hover);
+}
+
+/* 面板里的改名输入框 */
+.details-group-name-input {
+  display: block;
+  width: 100%;
+  margin: 0 0 3px;
+  padding: 2px 5px;
+  margin-left: -5px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--brand);
+  border-radius: 4px;
+  outline: none;
 }
 
 .details-group-count {
