@@ -32,6 +32,7 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isSelf = message.sender_id === selfId
   const isImage = message.type === MessageType.Image
+  const isEmoji = message.type === MessageType.Emoji
 
   return (
     <div className={`message-row ${isSelf ? 'is-self' : 'is-peer'}`}>
@@ -50,9 +51,13 @@ export function MessageBubble({
         {showHeader && !isSelf && (
           <div className="message-sender">{nickname || '未知用户'}</div>
         )}
-        <div className={`bubble ${isSelf ? 'bubble-self' : 'bubble-peer'} ${pending ? 'is-pending' : ''}`}>
+        <div
+          className={`bubble ${isSelf ? 'bubble-self' : 'bubble-peer'} ${pending ? 'is-pending' : ''} ${isEmoji ? 'bubble-emoji' : ''}`}
+        >
           {isImage ? (
             <img className="bubble-image" src={message.content} alt="图片消息" />
+          ) : isEmoji ? (
+            <span className="bubble-emoji-text">{message.content}</span>
           ) : (
             <span className="bubble-text">{message.content}</span>
           )}

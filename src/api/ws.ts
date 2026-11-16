@@ -57,6 +57,12 @@ export interface ResumeData {
   has_more: boolean
 }
 
+/** 错误帧载荷。code 是错误标识，message 是给用户看的原因。 */
+export interface ErrorData {
+  message: string
+  code?: string
+}
+
 /** 下行帧。data 的形状随 type 变化。 */
 export interface ServerFrame {
   type: ServerFrameType
@@ -94,6 +100,15 @@ export class WsClient {
 
   /** 重连后要补消息的会话 id。 */
   private resumeTargets = new Map<number, number>()
+  /**
+   * 在途的 chat 发送：会话 id → 待确认的临时消息 id。
+   *
+   * 网关拒了消息时回的 error 帧里没有会话 id 和消息 id ——
+   * 只能靠这份在途记录对上号，把对应的乐观气泡撤掉。
+   *
+   * 同一个连接上 chat 帧是顺序处理的，所以一个会话同时只有一条在途。
+   */
+  private inflightChat = new Map<number, number>()
 
   /** 当前连接状态。 */
   status: 'connecting' | 'open' | 'closed' = 'closed'
@@ -233,14 +248,45 @@ export class WsClient {
    *
    * 走 WS 而不是 HTTP：网关收到 chat 帧后转给 message 服务落库并广播，
    * 落库成功才回 ack。
+   *
+   * msgType 是消息类型，1=文本 2=图片 3=表情 —— 与 message 服务的枚举对齐。
+   *
+   * tempId 是本地乐观气泡的临时 id —— 记下来，好在网关回 error 帧时
+   * 把对应的气泡撤掉。
    */
-  sendChat(conversationId: number, content: string, msgType = 1): boolean {
-    return this.sendRaw({
+  sendChat(conversationId: number, content: string, msgType: number = 1, tempId?: number): boolean {
+    const ok = this.sendRaw({
       type: 'chat',
       conversation_id: conversationId,
       msg_type: msgType,
       content,
     })
+    if (ok && tempId !== undefined) {
+      this.inflightChat.set(conversationId, tempId)
+    }
+    return ok
+  }
+
+  /**
+   * 确认某条消息已落地 —— 去掉在途记录。
+   *
+   * ack 到了就调。没落地（网关拒了）的走 takeInflightChat。
+   */
+  settleChat(conversationId: number): void {
+    this.inflightChat.delete(conversationId)
+  }
+
+  /**
+   * 取一条在途发送 —— 网关拒了消息时用来找到要撤掉的乐观气泡。
+   *
+   * 返回 (会话 id, 临时消息 id)。没有在途记录时返回 null。
+   */
+  takeInflightChat(): { conversationId: number; tempId: number } | null {
+    for (const [conversationId, tempId] of this.inflightChat) {
+      this.inflightChat.delete(conversationId)
+      return { conversationId, tempId }
+    }
+    return null
   }
 
   /** 问网关查会话成员的在线状态。 */

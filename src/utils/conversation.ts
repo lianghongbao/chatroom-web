@@ -5,6 +5,26 @@
  */
 import type { ConversationInfo } from '../api/conversation'
 import { ConversationType } from '../api/conversation'
+import { MessageType } from '../api/message'
+
+/**
+ * 消息在会话列表里的摘要文本。
+ *
+ * 图片消息的正文是 OSS 上的 URL —— 直接显示会是一长串地址，
+ * 没有可读性。表情消息的正文就是表情本身，直接显示。
+ *
+ * type 是消息类型，content 是消息正文。
+ */
+export function messagePreviewText(type: MessageType, content: string): string {
+  switch (type) {
+    case MessageType.Image:
+      return '[图片]'
+    case MessageType.Emoji:
+      return content
+    default:
+      return content
+  }
+}
 
 /**
  * 会话的展示名。

@@ -9,6 +9,7 @@ export const MessageType = {
   Unspecified: 0,
   Text: 1,
   Image: 2,
+  Emoji: 3,
 } as const
 
 export type MessageType = (typeof MessageType)[keyof typeof MessageType]
@@ -30,7 +31,7 @@ export interface MessageInfo {
  * 调用方必须是会话成员（后端判定）。落库成功后才广播，
  * 所以「收到推送」等价于「已经存下来了」。
  */
-export function sendMessage(conversationId: number, content: string, type = MessageType.Text) {
+export function sendMessage(conversationId: number, content: string, type: MessageType = MessageType.Text) {
   return post<{ message: MessageInfo }>('message', '/send', {
     conversation_id: conversationId,
     type,
@@ -71,4 +72,32 @@ export function getUnreadCount(conversationId?: number) {
     '/unread',
     { conversation_id: conversationId || undefined },
   )
+}
+
+/** 聊天图片直传凭证 —— OSS PostObject 表单。 */
+export interface ImageUploadToken {
+  /** OSS 上传地址，POST 到这里。 */
+  host: string
+  /** 表单字段，原样塞进 FormData。值不能改，改了签名对不上。 */
+  fields: Record<string, string>
+  /** 完整 object key。 */
+  file_key: string
+  /** 上传后可访问的地址 —— 把它塞进 SendMessage 的 content（type=Image）。 */
+  public_url: string
+  /** 过期时间，Unix 秒。 */
+  expire_at: number
+  /** 允许的最大字节数，0 表示不限。 */
+  max_size: number
+}
+
+/**
+ * 签发聊天图片直传凭证。
+ *
+ * ext 是文件后缀，不带点。后缀不在后端白名单内时返 400。
+ *
+ * 拿到的 public_url 是 SendMessage(type=Image) 的 content ——
+ * 后端会校验这个地址是不是本次签发的对象，外链会被拒。
+ */
+export function getImageUploadToken(ext: string): Promise<ImageUploadToken> {
+  return post<ImageUploadToken>('message', '/image/upload_token', { ext })
 }

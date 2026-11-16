@@ -4,6 +4,7 @@ import * as conversationApi from '../api/conversation'
 import * as messageApi from '../api/message'
 import type { ConversationInfo } from '../api/conversation'
 import { wsClient } from '../api/ws'
+import { messagePreviewText } from '../utils/conversation'
 
 interface ConversationState {
   conversations: ConversationInfo[]
@@ -81,7 +82,10 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
           set((s) => ({
             previews: {
               ...s.previews,
-              [String(conversation.id)]: { text: last.content, at: last.created_at },
+              [String(conversation.id)]: {
+                text: messagePreviewText(last.type, last.content),
+                at: last.created_at,
+              },
             },
           }))
         } catch {

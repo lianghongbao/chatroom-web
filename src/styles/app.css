@@ -469,6 +469,19 @@
   display: block;
 }
 
+/* 表情消息 —— 大号单独展示，不跟文字挤在一个气泡里。 */
+.bubble-emoji {
+  background: transparent;
+  padding: 0;
+}
+
+.bubble-emoji-text {
+  font-size: 40px;
+  line-height: 1.2;
+  display: block;
+  user-select: none;
+}
+
 .message-meta {
   display: flex;
   gap: 6px;
@@ -508,12 +521,112 @@
 
 .composer {
   flex-shrink: 0;
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 10px;
   padding: 12px 20px 16px;
   border-top: 1px solid var(--border);
   background: var(--bg-panel);
+}
+
+/* 输入框左侧的工具按钮（表情 / 图片）。 */
+.composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  height: 40px;
+}
+
+.composer-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), color var(--transition);
+}
+
+.composer-icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.composer-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─────────────── 表情面板 ─────────────── */
+
+.emoji-picker {
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 20px;
+  width: 320px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.emoji-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.emoji-tab {
+  flex: 1;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-size: 17px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity var(--transition), background var(--transition);
+}
+
+.emoji-tab:hover {
+  opacity: 0.85;
+}
+
+.emoji-tab.is-active {
+  opacity: 1;
+  background: var(--bg-hover);
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.emoji-item {
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.emoji-item:hover {
+  background: var(--bg-hover);
+  transform: scale(1.15);
 }
 
 .composer-input {

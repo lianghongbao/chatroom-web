@@ -204,6 +204,21 @@ export function checkFileSize(fileSize: number, maxSize: number): string | null 
 }
 
 /**
+ * 直传凭证的最小形状。
+ *
+ * 上传只用到 host / fields / public_url —— user 的头像凭证和 message 的
+ * 聊天图片凭证结构一样，按最小形状收参数，两边都能传，不用转换。
+ */
+export interface OssUploadToken {
+  /** OSS 上传地址，POST 到这里。 */
+  host: string
+  /** 表单字段，原样塞进 FormData。 */
+  fields: Record<string, string>
+  /** 上传后可访问的地址。 */
+  public_url: string
+}
+
+/**
  * 把文件直传到 OSS。
  *
  * token 是签发凭证，file 是要上传的文件。
@@ -213,7 +228,7 @@ export function checkFileSize(fileSize: number, maxSize: number): string | null 
  *
  * 返回上传后的公开访问地址。
  */
-export async function uploadToOSS(token: UploadToken, file: File): Promise<string> {
+export async function uploadToOSS(token: OssUploadToken, file: File): Promise<string> {
   const form = new FormData()
   // 表单域原样搬过去 —— policy 是对这一组值签的，改任何一个都验不过。
   for (const [k, v] of Object.entries(token.fields || {})) {

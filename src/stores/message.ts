@@ -4,8 +4,10 @@ import * as messageApi from '../api/message'
 import type { MessageInfo } from '../api/message'
 import { MessageType } from '../api/message'
 import { wsClient } from '../api/ws'
-import type { AckData, MessageData } from '../api/ws'
+import type { AckData, ErrorData, MessageData } from '../api/ws'
 import { useConversationStore } from './conversation'
+import { messagePreviewText } from '../utils/conversation'
+import { toast } from '../utils/toast'
 
 interface MessageState {
   /** 按会话 id 存消息列表，旧的在前。 */
@@ -172,7 +174,9 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       }
     })
     // 同步会话列表摘要 —— 自己发的消息收不到 message 帧，只能在这里更新
-    useConversationStore.getState().setPreview(conversationId, match.content, createdAt)
+    useConversationStore
+      .getState()
+      .setPreview(conversationId, messagePreviewText(match.type, match.content), createdAt)
     // 推进断线补消息的游标 —— 自己发的消息也要计入，
     // 否则重连时 resume 会拿旧游标，把自己发过的消息再补一遍。
     wsClient.trackForResume(conversationId, messageId)
@@ -221,12 +225,29 @@ export function attachMessageStream(): () => void {
       // 同步更新会话列表里的摘要
       useConversationStore
         .getState()
-        .setPreview(data.conversation_id, data.content, data.created_at)
+        .setPreview(
+          data.conversation_id,
+          messagePreviewText(data.msg_type as MessageType, data.content),
+          data.created_at,
+        )
     } else if (frame.type === 'ack') {
       // 网关广播时排除发送方（见 ws-gateway 的 BroadcastToMembers），
       // 所以自己发的消息收不到 message 帧 —— ack 是自己这条消息落地的唯一信号。
       const data = frame.data as AckData
+      wsClient.settleChat(data.conversation_id)
       useMessageStore.getState().settleAck(data.conversation_id, data.message_id, data.created_at)
+    } else if (frame.type === 'error') {
+      // 网关拒了这条消息（后端校验没过，比如表情不合法、图片地址非法）。
+      //
+      // 走 WS 发送时 sendChat 是同步返回的 —— 不抛异常，
+      // 所以本地没法知道失败了。气泡会一直挂在「发送中」，
+      // 这里把它撤掉。
+      const data = frame.data as ErrorData
+      const inflight = wsClient.takeInflightChat()
+      if (inflight) {
+        useMessageStore.getState().removePending(inflight.conversationId, inflight.tempId)
+      }
+      toast(data.message || '发送失败', 'error')
     }
   })
 }

@@ -2,6 +2,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MessageBubble } from './MessageBubble'
 import { Avatar } from './Avatar'
+import { EmojiPicker } from './EmojiPicker'
+import { ImageUploader } from './ImageUploader'
 import { useMessageStore } from '../stores/message'
 import { useAuthStore } from '../stores/auth'
 import { useConversationStore } from '../stores/conversation'
@@ -11,7 +13,7 @@ import { MessageType, markRead as markReadApi, sendMessage } from '../api/messag
 import type { MessageInfo } from '../api/message'
 import type { ConversationInfo } from '../api/conversation'
 import { ConversationType } from '../api/conversation'
-import { conversationAvatar, conversationTitle } from '../utils/conversation'
+import { conversationAvatar, conversationTitle, messagePreviewText } from '../utils/conversation'
 import { formatDateSeparator, isNewTimeGroup } from '../utils/format'
 import { toast } from '../utils/toast'
 import { errorMessage } from '../utils/errors'
@@ -50,6 +52,8 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
 
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  // 表情面板开合。开着的时候点别处就关。
+  const [emojiOpen, setEmojiOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
@@ -108,6 +112,46 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
     }
   }
 
+  /**
+   * 发一条消息。
+   *
+   * content 是正文，type 是消息类型。三种类型走同一条链路 ——
+   * 差别只在 type 字段上。
+   */
+  const dispatchMessage = async (content: string, type: MessageType) => {
+    // 先上乐观气泡 —— 网关广播排除发送方，等 ack 才有真实消息落地。
+    const tempId = -Date.now()
+    addPending(conversation.id, {
+      id: tempId,
+      conversation_id: conversation.id,
+      sender_id: selfId,
+      type,
+      content,
+      created_at: Math.floor(Date.now() / 1000),
+    })
+
+    try {
+      if (wsClient.status === 'open') {
+        // 走 WS：网关转发给 message 服务，落库成功才回 ack。
+        //
+        // 把 tempId 带上 —— 网关拒了这条消息时回 error 帧，
+        // error 帧里没有消息 id，靠这份在途记录才能找到要撤掉的气泡。
+        wsClient.sendChat(conversation.id, content, type, tempId)
+      } else {
+        // WS 没连上就走 HTTP 兜底 —— 响应里直接带落库后的消息
+        const res = await sendMessage(conversation.id, content, type)
+        wsClient.settleChat(conversation.id)
+        removePending(conversation.id, tempId)
+        confirm(conversation.id, tempId, res.message)
+        setPreview(conversation.id, messagePreviewText(type, content), res.message.created_at)
+      }
+    } catch (e) {
+      removePending(conversation.id, tempId)
+      toast(errorMessage(e, '发送失败'), 'error')
+      throw e
+    }
+  }
+
   const handleSend = async () => {
     const content = draft.trim()
     if (!content || sending) return
@@ -115,32 +159,37 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
     setSending(true)
     setDraft('')
 
-    // 先上乐观气泡 —— 网关广播排除发送方，等 ack 才有真实消息落地。
-    const tempId = -Date.now()
-    addPending(conversation.id, {
-      id: tempId,
-      conversation_id: conversation.id,
-      sender_id: selfId,
-      type: MessageType.Text,
-      content,
-      created_at: Math.floor(Date.now() / 1000),
-    })
-
     try {
-      if (wsClient.status === 'open') {
-        // 走 WS：网关转发给 message 服务，落库成功才回 ack
-        wsClient.sendChat(conversation.id, content, MessageType.Text)
-      } else {
-        // WS 没连上就走 HTTP 兜底 —— 响应里直接带落库后的消息
-        const res = await sendMessage(conversation.id, content, MessageType.Text)
-        removePending(conversation.id, tempId)
-        confirm(conversation.id, tempId, res.message)
-        setPreview(conversation.id, content, res.message.created_at)
-      }
-    } catch (e) {
-      removePending(conversation.id, tempId)
-      toast(errorMessage(e, '发送失败'), 'error')
+      await dispatchMessage(content, MessageType.Text)
+    } catch {
+      // 失败时把内容放回输入框 —— 用户不用重打。
       setDraft(content)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  /** 选了一个表情 —— 作为独立的表情消息发出去。 */
+  const handleEmoji = async (emoji: string) => {
+    if (sending) return
+    setSending(true)
+    try {
+      await dispatchMessage(emoji, MessageType.Emoji)
+    } catch {
+      // 表情丢了就丢了 —— 不塞回输入框，那会变成一段文字。
+    } finally {
+      setSending(false)
+    }
+  }
+
+  /** 图片传完了 —— 作为图片消息发出去。 */
+  const handleImage = async (url: string) => {
+    if (sending) return
+    setSending(true)
+    try {
+      await dispatchMessage(url, MessageType.Image)
+    } catch {
+      // 图片已经传上去了但消息没发出去 —— 只提示，不重试。
     } finally {
       setSending(false)
     }
@@ -245,6 +294,21 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
       </div>
 
       <footer className="composer">
+        <div className="composer-tools">
+          <button
+            className="composer-icon-btn"
+            onClick={() => setEmojiOpen((v) => !v)}
+            title="表情"
+            aria-label="表情"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M8.5 14.5s1.2 1.8 3.5 1.8 3.5-1.8 3.5-1.8" />
+              <path d="M9 9.5h.01M15 9.5h.01" />
+            </svg>
+          </button>
+          <ImageUploader onUploaded={handleImage} />
+        </div>
         <textarea
           className="composer-input"
           placeholder="输入消息，Enter 发送，Shift+Enter 换行"
@@ -264,6 +328,15 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
             <path d="M22 2 11 13" />
           </svg>
         </button>
+        {emojiOpen && (
+          <EmojiPicker
+            onSelect={(emoji) => {
+              setEmojiOpen(false)
+              void handleEmoji(emoji)
+            }}
+            onClose={() => setEmojiOpen(false)}
+          />
+        )}
       </footer>
     </section>
   )
