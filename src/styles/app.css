@@ -353,35 +353,6 @@
   margin: 0;
 }
 
-/* 群主可以点群名就地改 —— 鼠标指针和轻微底色提示可点。 */
-.chat-title.is-editable {
-  cursor: text;
-  border-radius: 4px;
-  padding: 0 4px;
-  margin-left: -4px;
-  transition: background-color 0.12s;
-}
-
-.chat-title.is-editable:hover {
-  background: var(--bg-hover);
-}
-
-/* 就地编辑群名的输入框 —— 长得跟标题一样，不打断视觉。 */
-.chat-title-input {
-  font-size: 15px;
-  font-weight: 600;
-  width: 100%;
-  max-width: 420px;
-  padding: 0 4px;
-  margin-left: -4px;
-  border: 1px solid var(--brand);
-  border-radius: 4px;
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  font-family: inherit;
-  outline: none;
-}
-
 /*
  * 群名 + 铅笔 —— 摆一行，铅笔跟在群名右边。
  *

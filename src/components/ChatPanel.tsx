@@ -2,7 +2,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MessageBubble } from './MessageBubble'
 import { Avatar } from './Avatar'
-import { GroupHeaderEditor } from './GroupHeaderEditor'
 import { useMessageStore } from '../stores/message'
 import { useAuthStore } from '../stores/auth'
 import { useConversationStore } from '../stores/conversation'
@@ -172,10 +171,17 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
   return (
     <section className="chat-panel">
       <header className="chat-header">
-        {/* 群聊的头部可以直接改群名和群头像（飞书那种交互）；
-            单聊的头部跟对方相关，不给改。 */}
+        {/* 群聊的头部是纯展示 —— 改群名和群头像在右上角的「群聊信息」面板里。 */}
         {conversation.type === ConversationType.Group ? (
-          <GroupHeaderEditor conversation={conversation} selfId={selfId} />
+          <>
+            <Avatar src={conversation.avatar} name={conversation.name} size={38} />
+            <div className="chat-header-info">
+              <h2 className="chat-title u-truncate">
+                {conversation.name || '未命名群聊'}
+              </h2>
+              <p className="chat-subtitle">{conversation.member_count} 名成员</p>
+            </div>
+          </>
         ) : (
           <>
             <Avatar

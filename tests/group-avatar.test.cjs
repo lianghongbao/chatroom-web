@@ -1,12 +1,13 @@
 /**
  * 群名 / 群头像的验收脚本。
  *
- * 覆盖新的交互设计 —— 入口都在**聊天头部**，不在「群管理」面板里：
- *   1. 群主点群名就地变输入框，改完即生效（飞书那种交互）
- *   2. 群主点群头像直接弹系统选择器上传
- *   3. 非群主看到的是纯展示 —— 群名不可点，头像点了没反应
- *   4. 群管理面板里不再有「修改群名」「设置群头像」按钮
- *   5. 改完之后不白屏 —— 返回的会话必须带成员资料
+ * 交互设计：
+ *   - 聊天界面**左上角**（群头像 + 群名）是**纯展示**，不能改
+ *   - 改的入口在右上角的「群聊信息」面板里：
+ *     头像右下角有相机角标 → 点它上传
+ *     群名旁边有铅笔 → 点它就地改名
+ *   - 只有群主能改，非群主看不到任何入口
+ *   - 改完之后不白屏 —— 返回的会话必须带成员资料
  *
  * 用法：source tests/chromium-env.sh && node tests/group-avatar.test.cjs
  */
@@ -78,6 +79,12 @@ function makePng(file) {
   return file
 }
 
+/** 关掉群聊信息弹窗。 */
+async function closeModal(page) {
+  await page.locator('.modal button[aria-label="关闭"], .modal-close').first().click().catch(() => {})
+  await page.waitForTimeout(900)
+}
+
 ;(async () => {
   const browser = await chromium.launch()
   const su = Date.now()
@@ -142,70 +149,79 @@ function makePng(file) {
     }, uidB)
     check('A 建群成功', !!conv, `conversation_id=${conv}`)
 
-    // --- 2. 群主在头部就地改群名 ---
-    console.log('\n=== 2. 群主在聊天头部就地改群名 ===')
+    // --- 2. 聊天界面左上角是纯展示 ---
+    console.log('\n=== 2. 聊天界面左上角不能改 ===')
     await pageA.goto(BASE, { waitUntil: 'domcontentloaded' })
     await pageA.waitForTimeout(2500)
-    // 按群名点，别点列表第一个（可能有别的会话排前面）
     await pageA.locator('.conversation-item', { hasText: '群头像验收群' }).first().click()
     await pageA.waitForTimeout(1000)
 
-    const editableTitle = await pageA.locator('.chat-title.is-editable').count()
-    check('群主的群名可点（带 is-editable 标记）', editableTitle > 0, `count=${editableTitle}`)
+    const headerBadge = await pageA.locator('.chat-header .avatar-badge').count()
+    check('聊天头部没有相机角标', headerBadge === 0, `count=${headerBadge}`)
+    const headerFileInput = await pageA.locator('.chat-header input[type="file"]').count()
+    check('聊天头部没有头像上传入口', headerFileInput === 0, `count=${headerFileInput}`)
+    const headerPencil = await pageA.locator('.chat-header .group-name-edit').count()
+    check('聊天头部群名旁边没有铅笔', headerPencil === 0, `count=${headerPencil}`)
+    const headerEditable = await pageA.locator('.chat-header .is-editable').count()
+    check('聊天头部没有可编辑的元素', headerEditable === 0, `count=${headerEditable}`)
+    const headerTitle = await pageA.locator('.chat-header .chat-title').textContent()
+    check('群名照常显示', headerTitle === '群头像验收群', headerTitle || '(无)')
 
-    // 群名旁边挂铅笔 —— 明说「群名能改」，不然用户以为群名是只读的
-    const namePencil = await pageA.locator('.chat-header .group-name-edit').count()
-    check('群名旁边有铅笔图标', namePencil === 1, `count=${namePencil}`)
-    const pencilOpacity = await pageA
-      .locator('.chat-header .group-name-edit')
-      .evaluate((el) => getComputedStyle(el).opacity)
-    check('铅笔不是 hover 才出现', Number(pencilOpacity) > 0.9, `opacity=${pencilOpacity}`)
+    // --- 3. 群聊信息面板里能改 ---
+    console.log('\n=== 3. 群聊信息面板里能改 ===')
+    await pageA.locator('button[title="会话详情"]').click()
+    await pageA.waitForTimeout(1200)
 
-    // 群头像右下角挂相机角标 —— 明说「点这里能换头像」
-    const badgeCount = await pageA.locator('.avatar-badge').count()
-    check('群主能看到群头像的相机角标', badgeCount === 1, `count=${badgeCount}`)
+    const panelBadge = await pageA.locator('.modal .avatar-badge').count()
+    check('面板里的头像有相机角标', panelBadge === 1, `count=${panelBadge}`)
+    const panelFileInput = await pageA.locator('.modal input[type="file"]').count()
+    check('面板里有头像上传入口', panelFileInput === 1, `count=${panelFileInput}`)
+    const panelPencil = await pageA.locator('.modal .group-name-edit').count()
+    check('面板里的群名旁边有铅笔', panelPencil === 1, `count=${panelPencil}`)
+    const panelEditable = await pageA.locator('.modal .details-group-name.is-editable').count()
+    check('面板里的群名可点', panelEditable === 1, `count=${panelEditable}`)
 
-    await pageA.locator('.chat-title.is-editable').click()
-    await pageA.waitForTimeout(500)
-    const inputCount = await pageA.locator('.chat-title-input').count()
-    check('点群名后就地变输入框', inputCount === 1, `count=${inputCount}`)
+    // 群管理区只留低频操作
+    const renameBtn = await pageA.locator('.modal button:has-text("修改群名")').count()
+    const avatarBtn = await pageA.locator('.modal button:has-text("设置群头像")').count()
+    check('面板里没有「修改群名」按钮', renameBtn === 0, `count=${renameBtn}`)
+    check('面板里没有「设置群头像」按钮', avatarBtn === 0, `count=${avatarBtn}`)
+    const transferBtn = await pageA.locator('.modal button:has-text("转让群主")').count()
+    check('面板里保留了「转让群主」', transferBtn > 0, `count=${transferBtn}`)
 
-    // 铅笔也要能进编辑态
-    await pageA.locator('.chat-title-input').fill('铅笔改的名')
-    await pageA.keyboard.press('Escape')
+    // --- 4. 在面板里改群名 ---
+    console.log('\n=== 4. 在面板里改群名 ===')
+    await pageA.locator('.modal .group-name-edit').click()
     await pageA.waitForTimeout(600)
-    await pageA.locator('.chat-header .group-name-edit').click()
-    await pageA.waitForTimeout(600)
-    const pencilInput = await pageA.locator('.chat-title-input').count()
-    check('点铅笔也能进编辑态', pencilInput === 1, `count=${pencilInput}`)
+    const panelInput = await pageA.locator('.modal .details-group-name-input').count()
+    check('点铅笔后面板里出现输入框', panelInput === 1, `count=${panelInput}`)
 
-    await pageA.locator('.chat-title-input').fill('改过的群名')
+    await pageA.locator('.modal .details-group-name-input').fill('改过的群名')
     await pageA.keyboard.press('Enter')
     await pageA.waitForTimeout(2000)
 
-    const headerTitle = await pageA.locator('.chat-title').textContent()
-    check('头部标题已更新', headerTitle === '改过的群名', headerTitle || '(无)')
-    const listTitle = await pageA
+    const panelName = await pageA.locator('.modal .details-group-name').textContent()
+    check('面板里群名已更新', panelName === '改过的群名', panelName || '(无)')
+    const headerAfter = await pageA.locator('.chat-header .chat-title').textContent()
+    check('聊天头部的群名同步更新', headerAfter === '改过的群名', headerAfter || '(无)')
+    const listName = await pageA
       .locator('.conversation-item.is-active .conversation-name')
       .textContent()
       .catch(() => null)
-    check('会话列表里的群名也更新了', listTitle === '改过的群名', listTitle || '(无)')
+    check('会话列表里的群名也更新了', listName === '改过的群名', listName || '(无)')
     const backendName = await pageA.evaluate(async () => {
       const t = localStorage.getItem('chatroom.access_token')
       const l = await (await fetch('/api/conversation/list', {
         headers: { Authorization: `Bearer ${t}` },
       })).json()
       const c = l.conversations.find((x) => x.name === '改过的群名')
-      return c ? c.name : '(没找到) ' + l.conversations.map((x) => x.name).join(',')
+      return c ? c.name : '(没找到)'
     })
     check('后端存的是新群名', backendName === '改过的群名', backendName)
 
-    // --- 3. 群主在头部换群头像 ---
-    console.log('\n=== 3. 群主在聊天头部换群头像 ===')
-    const headerFileInput = await pageA.locator('.chat-header input[type="file"]').count()
-    check('头部有隐藏的文件选择框', headerFileInput > 0, `count=${headerFileInput}`)
-
-    await pageA.locator('.chat-header input[type="file"]').first().setInputFiles(tmp)
+    // --- 5. 在面板里换群头像 ---
+    console.log('\n=== 5. 在面板里换群头像 ===')
+    await pageA.locator('.modal input[type="file"]').first().setInputFiles(tmp)
     await pageA.waitForTimeout(6000)
 
     const convAfter = await pageA.evaluate(async (id) => {
@@ -234,107 +250,41 @@ function makePng(file) {
       .catch((e) => ({ ok: false, err: String(e) }))
     check('CDN 能取到群头像', cdn.ok === true, JSON.stringify(cdn))
 
-    const headerImg = await pageA
-      .locator('.chat-header img.avatar-img')
+    const panelImg = await pageA
+      .locator('.modal .details-group-header img.avatar-img')
       .first()
       .getAttribute('src')
       .catch(() => null)
-    check('聊天头部显示群头像', !!headerImg && headerImg.includes('group_avatar'), headerImg || '(无)')
+    check('面板里显示新的群头像', !!panelImg && panelImg.includes('group_avatar'), panelImg || '(无)')
 
-    // --- 4. 不白屏 ---
-    console.log('\n=== 4. 改完之后不白屏 ===')
+    // --- 6. 不白屏 ---
+    console.log('\n=== 6. 改完之后不白屏 ===')
     const rootAlive = await pageA.evaluate(() => document.getElementById('root')?.children.length ?? 0)
     check('页面根节点还在（没白屏）', rootAlive > 0, `root children=${rootAlive}`)
     check('没有 JS 异常', pageErrors.length === 0, pageErrors.join(' | ') || '无')
 
-    // --- 5. 群管理面板里不再有改名字/头像的按钮 ---
-    console.log('\n=== 5. 群管理面板里没有重复入口 ===')
-    await pageA.locator('button[title="会话详情"]').click()
-    await pageA.waitForTimeout(1200)
-    const renameBtn = await pageA.locator('.modal button:has-text("修改群名")').count()
-    const avatarBtn = await pageA.locator('.modal button:has-text("设置群头像")').count()
-    check('群管理面板没有「修改群名」按钮', renameBtn === 0, `count=${renameBtn}`)
-    check('群管理面板没有「设置群头像」按钮', avatarBtn === 0, `count=${avatarBtn}`)
-    const transferBtn = await pageA.locator('.modal button:has-text("转让群主")').count()
-    check('群管理面板保留了「转让群主」', transferBtn > 0, `count=${transferBtn}`)
+    await closeModal(pageA)
 
-    // --- 5b. 但「群聊信息」面板里的头像和群名本身就能改 ---
-    console.log('\n=== 5b. 群聊信息面板里能改头像和群名 ===')
-    const panelBadge = await pageA.locator('.modal .avatar-badge').count()
-    check('群聊信息面板的头像有相机角标', panelBadge === 1, `count=${panelBadge}`)
-    const panelFileInput = await pageA.locator('.modal input[type="file"]').count()
-    check('群聊信息面板有头像上传入口', panelFileInput === 1, `count=${panelFileInput}`)
-    const panelEditableName = await pageA.locator('.modal .details-group-name.is-editable').count()
-    check('群聊信息面板的群名可点改', panelEditableName === 1, `count=${panelEditableName}`)
-
-    // 在面板里改群名
-    await pageA.locator('.modal .details-group-name.is-editable').click()
-    await pageA.waitForTimeout(600)
-    const panelInput = await pageA.locator('.modal .details-group-name-input').count()
-    check('点群名后面板里出现输入框', panelInput === 1, `count=${panelInput}`)
-    await pageA.locator('.modal .details-group-name-input').fill('面板改的群名')
-    await pageA.keyboard.press('Enter')
-    await pageA.waitForTimeout(2000)
-
-    const panelName = await pageA.locator('.modal .details-group-name').textContent()
-    check('面板里群名已更新', panelName === '面板改的群名', panelName || '(无)')
-    const headerNameAfter = await pageA.locator('.chat-header .chat-title').textContent()
-    check('聊天头部的群名同步更新', headerNameAfter === '面板改的群名', headerNameAfter || '(无)')
-    const backendNameAfter = await pageA.evaluate(async () => {
-      const t = localStorage.getItem('chatroom.access_token')
-      const l = await (await fetch('/api/conversation/list', {
-        headers: { Authorization: `Bearer ${t}` },
-      })).json()
-      const c = l.conversations.find((x) => x.name === '面板改的群名')
-      return c ? c.name : '(没找到)'
-    })
-    check('后端存的也是新群名', backendNameAfter === '面板改的群名', backendNameAfter)
-
-    // 面板里的头像上传 —— 走的是同一个组件，行为应该一致
-    await pageA.locator('.modal input[type="file"]').first().setInputFiles(tmp)
-    await pageA.waitForTimeout(6000)
-    const avatarAfterPanel = await pageA.evaluate(async (id) => {
-      const t = localStorage.getItem('chatroom.access_token')
-      const r = await fetch(`/api/conversation/get?id=${id}`, {
-        headers: { Authorization: `Bearer ${t}` },
-      })
-      const d = await r.json()
-      return d.conversation?.avatar || ''
-    }, conv)
-    check('从面板上传的群头像也写进了后端', avatarAfterPanel.includes('group_avatar'), avatarAfterPanel)
-
-    await pageA.locator('.modal button:has-text("取消"), .modal-close').first().click().catch(() => {})
-    await pageA.waitForTimeout(1000)
-
-    // --- 6. 非群主不能改 ---
-    console.log('\n=== 6. 非群主不能改 ===')
+    // --- 7. 非群主不能改 ---
+    console.log('\n=== 7. 非群主不能改 ===')
     await pageB.goto(BASE, { waitUntil: 'domcontentloaded' })
     await pageB.waitForTimeout(2500)
-    // 群名在第 5b 步被改成「面板改的群名」了 —— 这里要用最新的名字
-    await pageB.locator('.conversation-item', { hasText: '面板改的群名' }).first().click()
+    await pageB.locator('.conversation-item', { hasText: '改过的群名' }).first().click()
     await pageB.waitForTimeout(1000)
 
-    const nonOwnerEditable = await pageB.locator('.chat-title.is-editable').count()
-    check('非群主的群名不可点', nonOwnerEditable === 0, `count=${nonOwnerEditable}`)
+    const nonOwnerHeaderBadge = await pageB.locator('.chat-header .avatar-badge').count()
+    check('非群主在聊天头部看不到角标', nonOwnerHeaderBadge === 0, `count=${nonOwnerHeaderBadge}`)
 
-    const nonOwnerPencil = await pageB.locator('.chat-header .group-name-edit').count()
-    check('非群主看不到群名的铅笔', nonOwnerPencil === 0, `count=${nonOwnerPencil}`)
-
-    const nonOwnerFileInput = await pageB.locator('.chat-header input[type="file"]').count()
-    check('非群主看不到头像上传入口', nonOwnerFileInput === 0, `count=${nonOwnerFileInput}`)
-
-    const nonOwnerBadge = await pageB.locator('.avatar-badge').count()
-    check('非群主看不到相机角标', nonOwnerBadge === 0, `count=${nonOwnerBadge}`)
-
-    // 群聊信息面板里同样没有入口
     await pageB.locator('button[title="会话详情"]').click()
     await pageB.waitForTimeout(1200)
     const nonOwnerPanelBadge = await pageB.locator('.modal .avatar-badge').count()
-    check('非群主在群聊信息面板里也看不到角标', nonOwnerPanelBadge === 0, `count=${nonOwnerPanelBadge}`)
-    const nonOwnerPanelEditable = await pageB.locator('.modal .details-group-name.is-editable').count()
-    check('非群主在群聊信息面板里也不能改群名', nonOwnerPanelEditable === 0, `count=${nonOwnerPanelEditable}`)
-    await pageB.locator('.modal button:has-text("取消"), .modal-close').first().click().catch(() => {})
-    await pageB.waitForTimeout(800)
+    check('非群主在面板里看不到角标', nonOwnerPanelBadge === 0, `count=${nonOwnerPanelBadge}`)
+    const nonOwnerPencil = await pageB.locator('.modal .group-name-edit').count()
+    check('非群主在面板里看不到铅笔', nonOwnerPencil === 0, `count=${nonOwnerPencil}`)
+    const nonOwnerEditable = await pageB.locator('.modal .details-group-name.is-editable').count()
+    check('非群主的群名不可点', nonOwnerEditable === 0, `count=${nonOwnerEditable}`)
+    const nonOwnerFileInput = await pageB.locator('.modal input[type="file"]').count()
+    check('非群主在面板里也没有上传入口', nonOwnerFileInput === 0, `count=${nonOwnerFileInput}`)
 
     const denied = await pageB.evaluate(async (id) => {
       const t = localStorage.getItem('chatroom.access_token')
