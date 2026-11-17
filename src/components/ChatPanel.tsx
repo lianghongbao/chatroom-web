@@ -54,6 +54,10 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
   const [sending, setSending] = useState(false)
   // 表情面板开合。开着的时候点别处就关。
   const [emojiOpen, setEmojiOpen] = useState(false)
+  // 表情按钮和面板算「同一个区域」—— 光标在这两者之间移动不算离开。
+  // 面板是浮在按钮上方的，两者之间有一条缝，只判面板的话，
+  // 光标从面板移到按钮的途中会误触发关闭。
+  const emojiRegionRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
@@ -203,6 +207,24 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
     }
   }
 
+  /**
+   * 表情面板的关闭判定。
+   *
+   * 不用面板自己的 onMouseLeave —— 那样光标从面板挪到表情按钮的
+   * 途中（两者之间有条缝）也会关面板，得重新点一次才开得起来。
+   *
+   * 这里按「按钮 + 面板」整体判：relatedTarget 不在这块区域里
+   * 才算真的走开了。
+   */
+  const handleEmojiPointerOut = (e: React.PointerEvent) => {
+    const region = emojiRegionRef.current
+    if (!region) return
+    const to = e.relatedTarget as Node | null
+    // 移到区域内部（包括 null —— 移出浏览器窗口不算）不关。
+    if (to && region.contains(to)) return
+    setEmojiOpen(false)
+  }
+
   // 消息按时间分组：同一人 5 分钟内的连续消息合并成一块
   const grouped = useMemo(() => {
     const all = [...messages, ...pending]
@@ -294,21 +316,36 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
       </div>
 
       <footer className="composer">
-        <div className="composer-tools">
-          <button
-            className="composer-icon-btn"
-            onClick={() => setEmojiOpen((v) => !v)}
-            title="表情"
-            aria-label="表情"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M8.5 14.5s1.2 1.8 3.5 1.8 3.5-1.8 3.5-1.8" />
-              <path d="M9 9.5h.01M15 9.5h.01" />
-            </svg>
-          </button>
-          <ImageUploader onUploaded={handleImage} />
+        {/* 表情按钮和面板算同一块区域 —— 光标在这两者之间移动不关面板。 */}
+        <div
+          className="composer-emoji-region"
+          ref={emojiRegionRef}
+          onPointerOut={handleEmojiPointerOut}
+        >
+          <div className="composer-tools">
+            <button
+              className="composer-icon-btn"
+              onClick={() => setEmojiOpen((v) => !v)}
+              title="表情"
+              aria-label="表情"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M8.5 14.5s1.2 1.8 3.5 1.8s3.5-1.8 3.5-1.8" />
+                <path d="M9 9.5h.01M15 9.5h.01" />
+              </svg>
+            </button>
+          </div>
+          {emojiOpen && (
+            <EmojiPicker
+              onSelect={(emoji) => {
+                setEmojiOpen(false)
+                void handleEmoji(emoji)
+              }}
+            />
+          )}
         </div>
+        <ImageUploader onUploaded={handleImage} />
         <textarea
           className="composer-input"
           placeholder="输入消息，Enter 发送，Shift+Enter 换行"
@@ -328,15 +365,6 @@ export function ChatPanel({ conversation, onOpenDetails, onOpenProfile }: ChatPa
             <path d="M22 2 11 13" />
           </svg>
         </button>
-        {emojiOpen && (
-          <EmojiPicker
-            onSelect={(emoji) => {
-              setEmojiOpen(false)
-              void handleEmoji(emoji)
-            }}
-            onClose={() => setEmojiOpen(false)}
-          />
-        )}
       </footer>
     </section>
   )

@@ -469,6 +469,67 @@
   display: block;
 }
 
+/* 图片按钮 —— 去掉 button 的默认外观，只留点击能力。
+ * 用 button 而不是给 img 绑 click：键盘能聚焦、Tab 能走到。
+ */
+.bubble-image-btn {
+  display: block;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+  line-height: 0;
+}
+
+.bubble-image-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─────────────── 图片大图查看器 ─────────────── */
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(8 9 12 / 88%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  z-index: 300;
+  cursor: zoom-out;
+  animation: fade-in 130ms ease-out;
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  cursor: zoom-out;
+  box-shadow: 0 12px 48px rgb(0 0 0 / 50%);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.lightbox-close:hover {
+  background: rgb(255 255 255 / 24%);
+}
+
 /* 表情消息 —— 大号单独展示，不跟文字挤在一个气泡里。 */
 .bubble-emoji {
   background: transparent;
@@ -561,6 +622,20 @@
   cursor: not-allowed;
 }
 
+/* 表情按钮 + 表情面板算同一块区域。
+ *
+ * 面板浮在按钮上方，两者之间有条缝。关闭判定按这块区域整体算，
+ * 光标在区域内部移动（按钮 ↔ 面板）不算「走开」。
+ * 区域本身要撑开按钮的宽度 —— 面板是绝对定位，不占布局。
+ */
+.composer-emoji-region {
+  position: relative;
+  flex-shrink: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+}
+
 /* ─────────────── 表情面板 ─────────────── */
 
 .emoji-picker {
@@ -604,13 +679,25 @@
   background: var(--bg-hover);
 }
 
+/* 高度固定 = 面板高度不随分组变。
+ *
+ * 面板是 bottom 锚定的（bottom: calc(100% - 4px)），底边固定、
+ * 顶边随内容高度浮动。分组表情数不同（48/32/24/40/32），
+ * 切到数量少的分组时网格变矮 → 整个面板变矮 → 顶边下移，
+ * 而 tab 行在顶部，跟着下移 —— 光标停在原地就落到面板外面了，
+ * mouseleave 触发，面板当场关闭。表情数最少的那个分组尤其明显。
+ *
+ * 固定高度后面板尺寸恒定，tab 行不动，光标一直在面板内。
+ */
 .emoji-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
+  grid-auto-rows: 34px;
   gap: 2px;
   padding: 8px;
-  max-height: 220px;
+  height: 236px;
   overflow-y: auto;
+  align-content: start;
 }
 
 .emoji-item {

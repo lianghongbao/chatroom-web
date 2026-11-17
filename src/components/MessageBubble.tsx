@@ -1,5 +1,7 @@
 /** 消息气泡。 */
+import { useState } from 'react'
 import { Avatar } from './Avatar'
+import { ImageLightbox } from './ImageLightbox'
 import type { MessageInfo } from '../api/message'
 import { MessageType } from '../api/message'
 import { formatMessageTime } from '../utils/format'
@@ -33,6 +35,8 @@ export function MessageBubble({
   const isSelf = message.sender_id === selfId
   const isImage = message.type === MessageType.Image
   const isEmoji = message.type === MessageType.Emoji
+  // 点图放大。空串表示没打开大图。
+  const [preview, setPreview] = useState('')
 
   return (
     <div className={`message-row ${isSelf ? 'is-self' : 'is-peer'}`}>
@@ -55,7 +59,13 @@ export function MessageBubble({
           className={`bubble ${isSelf ? 'bubble-self' : 'bubble-peer'} ${pending ? 'is-pending' : ''} ${isEmoji ? 'bubble-emoji' : ''}`}
         >
           {isImage ? (
-            <img className="bubble-image" src={message.content} alt="图片消息" />
+            <button
+              className="bubble-image-btn"
+              onClick={() => setPreview(message.content)}
+              title="查看大图"
+            >
+              <img className="bubble-image" src={message.content} alt="图片消息" />
+            </button>
           ) : isEmoji ? (
             <span className="bubble-emoji-text">{message.content}</span>
           ) : (
@@ -67,6 +77,7 @@ export function MessageBubble({
           <span className="message-time">{formatMessageTime(message.created_at)}</span>
         </div>
       </div>
+      {isImage && <ImageLightbox src={preview} onClose={() => setPreview('')} />}
     </div>
   )
 }

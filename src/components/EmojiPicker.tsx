@@ -67,7 +67,7 @@ const EMOJI_GROUPS: EmojiGroup[] = [
       '✅', '❌', '❗', '❓', '⚠️', '🚫', '💯', '🔴',
       '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🔺',
       '🔻', '🔸', '🔹', '🔶', '🔷', '💤', '💨', '💢',
-      '♻️', '🔱', '⚜️', '🔰', '⭕', '🚫', '➕', '➖',
+      '♻️', '🔱', '⚜️', '🔰', '⭕', '🚷', '➕', '➖',
     ],
   },
 ]
@@ -75,11 +75,9 @@ const EMOJI_GROUPS: EmojiGroup[] = [
 interface EmojiPickerProps {
   /** 选中表情后回调。传的是表情字形本身。 */
   onSelect: (emoji: string) => void
-  /** 点面板外面时关闭。 */
-  onClose: () => void
 }
 
-export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
+export function EmojiPicker({ onSelect }: EmojiPickerProps) {
   const [active, setActive] = useState(EMOJI_GROUPS[0].key)
 
   const group = useMemo(
@@ -88,7 +86,7 @@ export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
   )
 
   return (
-    <div className="emoji-picker" onMouseLeave={onClose}>
+    <div className="emoji-picker">
       <div className="emoji-tabs">
         {EMOJI_GROUPS.map((g) => (
           <button
