@@ -1,6 +1,7 @@
 /** 图片大图查看器。点图放大，点遮罩 / 按 Esc 关闭。 */
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { evictImage } from '../utils/imageCache'
 
 interface ImageLightboxProps {
   /** 要放大的图片地址。空字符串表示没打开。 */
@@ -34,6 +35,9 @@ export function ImageLightbox({ src, onClose }: ImageLightboxProps) {
         className="lightbox-image"
         src={src}
         alt="图片"
+        // 大图跟气泡用的是同一个地址 —— 正常情况下直接命中本地缓存。
+        // 万一加载失败，把这条从缓存里清掉，别留个永久裂图。
+        onError={() => evictImage(src)}
         // 点图本身也关 —— 用户想的是「看完了，点一下回去」。
         onMouseDown={(e) => e.stopPropagation()}
       />

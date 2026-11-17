@@ -1,5 +1,5 @@
 /** 个人资料页 —— 改昵称、头像、改密、登出。 */
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Modal } from '../components/Modal'
 import { toast } from '../utils/toast'
@@ -8,6 +8,7 @@ import { getRefreshToken } from '../api/client'
 import * as userApi from '../api/user'
 import { errorMessage } from '../utils/errors'
 import { formatFullDateTime } from '../utils/format'
+import { clearImageCache, imageCacheCount } from '../utils/imageCache'
 
 /**
  * 正在就地编辑的字段。null = 没有字段在编辑。
@@ -44,12 +45,40 @@ export function ProfilePage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
+  // 本地缓存了几张图片 —— 设置区里那一行要显示。
+  const [cachedImages, setCachedImages] = useState(0)
+
   // 隐藏的 file input —— 点头像时用 ref 触发它弹系统选择器。
   const fileRef = useRef<HTMLInputElement>(null)
   // 头像旁边的昵称输入框。
   const nickInputRef = useRef<HTMLInputElement>(null)
 
+  // 进来时数一下缓存里有多少张图。
+  useEffect(() => {
+    imageCacheCount()
+      .then(setCachedImages)
+      .catch(() => {
+        // 数不出来就不显示数字，不影响别的功能。
+      })
+  }, [])
+
   if (!user) return null
+
+  /**
+   * 清掉本地图片缓存。
+   *
+   * 缓存里是已经看过的聊天图片 —— 删了不影响聊天记录，
+   * 只是下次再翻到那些图要重新下载一次。
+   */
+  const handleClearImageCache = async () => {
+    try {
+      await clearImageCache()
+      setCachedImages(0)
+      toast('图片缓存已清理', 'success')
+    } catch {
+      toast('清理失败', 'error')
+    }
+  }
 
   // 选好文件后立刻直传 OSS，拿到地址直接写回后端。
   // 走直传而不是后端中转 —— 图片字节不经过自己的服务器。
@@ -394,6 +423,25 @@ export function ProfilePage() {
             <span className="profile-setting-label">修改密码</span>
             <span className="profile-setting-chevron">›</span>
           </button>
+          {/*
+            清理图片缓存 —— 看过的聊天图片存在浏览器本地，
+            给用户一个自己收回空间的口子。
+
+            平时不占地方：有缓存才显示这一行。
+          */}
+          {cachedImages > 0 && (
+            <button className="profile-setting" onClick={handleClearImageCache}>
+              <span className="profile-setting-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v5M14 11v5" />
+                </svg>
+              </span>
+              <span className="profile-setting-label">清理图片缓存（{cachedImages}）</span>
+            </button>
+          )}
         </div>
       </section>
 

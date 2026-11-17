@@ -5,6 +5,7 @@ import { ImageLightbox } from './ImageLightbox'
 import type { MessageInfo } from '../api/message'
 import { MessageType } from '../api/message'
 import { formatMessageTime } from '../utils/format'
+import { evictImage } from '../utils/imageCache'
 
 interface MessageBubbleProps {
   /** 要渲染的消息。 */
@@ -64,7 +65,22 @@ export function MessageBubble({
               onClick={() => setPreview(message.content)}
               title="查看大图"
             >
-              <img className="bubble-image" src={message.content} alt="图片消息" />
+              {/*
+                loading="lazy" —— 视口外的图片先不下载。
+                往上翻历史时只有真正滚到的那几张才走网络。
+
+                onError —— 加载失败（404 / 对象被删）时把这条从本地缓存里踢掉。
+                跨域图片在 Service Worker 里读不到状态码，
+                一次 404 会被当成「成功」缓存下来，之后每次打开都是裂图。
+              */}
+              <img
+                className="bubble-image"
+                src={message.content}
+                alt="图片消息"
+                loading="lazy"
+                decoding="async"
+                onError={() => evictImage(message.content)}
+              />
             </button>
           ) : isEmoji ? (
             <span className="bubble-emoji-text">{message.content}</span>
