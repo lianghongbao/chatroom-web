@@ -17,6 +17,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // 监听所有网卡，不只是 loopback。
+    // 默认只绑 127.0.0.1，用 http://<本机IP>:5173 从别的机器访问会连不上。
+    // 开了之后局域网 / WSL 宿主机都能直接访问开发服务器。
+    host: true,
     proxy: {
       '/api/user': { target: BACKEND.user, changeOrigin: true },
       '/api/friend': { target: BACKEND.friend, changeOrigin: true },
