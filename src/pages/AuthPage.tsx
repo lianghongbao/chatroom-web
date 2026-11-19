@@ -11,6 +11,14 @@ type UsernameState = 'idle' | 'checking' | 'ok' | 'taken'
 /** 输入停多久后发起校验（毫秒）。 */
 const CHECK_DEBOUNCE_MS = 500
 
+/** 少于这个长度不查占用 —— 单个字符几乎必然可用，查了也是白查。 */
+const CHECK_MIN_LENGTH = 2
+
+/** 用户名 / 昵称 / 密码的长度上限，跟后端 biz 层的常量对齐。 */
+const MAX_USERNAME_LENGTH = 36
+const MAX_NICKNAME_LENGTH = 64
+const MIN_PASSWORD_LENGTH = 6
+
 export function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
@@ -59,7 +67,8 @@ export function AuthPage() {
    */
   const runCheck = useCallback(async (name: string) => {
     const trimmed = name.trim()
-    if (!trimmed) {
+    // 太短不查 —— 单个字符几乎必然没人用，查了是白费一次请求。
+    if (trimmed.length < CHECK_MIN_LENGTH) {
       setNameState('idle')
       return
     }
@@ -160,13 +169,18 @@ export function AuthPage() {
               placeholder="请输入用户名"
               autoComplete="username"
               autoFocus
+              maxLength={MAX_USERNAME_LENGTH}
+              // 输入框本身也标红 —— 只在下面写一行红字不够醒目。
+              className={mode === 'register' && nameState === 'taken' ? 'is-invalid' : undefined}
             />
-            {mode === 'register' && nameState !== 'idle' && (
+            {mode === 'register' && nameState !== 'idle' ? (
               <span className={`field-hint field-hint-${nameState}`}>
                 {nameState === 'checking' && '检查中…'}
                 {nameState === 'ok' && '用户名可用'}
                 {nameState === 'taken' && '该用户名已被占用'}
               </span>
+            ) : (
+              <span className="field-note">2–{MAX_USERNAME_LENGTH} 个字符，全局唯一，不区分大小写</span>
             )}
           </label>
 
@@ -179,7 +193,9 @@ export function AuthPage() {
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   placeholder="留空则使用用户名"
+                  maxLength={MAX_NICKNAME_LENGTH}
                 />
+                <span className="field-note">最多 {MAX_NICKNAME_LENGTH} 个字符，留空则使用用户名</span>
               </label>
               <label className="field">
                 <span className="field-label">手机号</span>
@@ -213,6 +229,9 @@ export function AuthPage() {
               placeholder="请输入密码"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
+            {mode === 'register' && (
+              <span className="field-note">至少 {MIN_PASSWORD_LENGTH} 个字符</span>
+            )}
           </label>
 
           {mode === 'register' && (

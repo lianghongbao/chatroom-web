@@ -914,16 +914,31 @@
   line-height: 1.4;
 }
 
-.field-hint-checking {
+/* 表单字段的规则备注（长度、格式）。比提示更弱 —— 灰色的辅助文字。 */
+.field-note {
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--text-tertiary);
 }
 
-.field-hint-ok {
+/*
+ * 状态色用 `.field-hint.field-hint-*` 双类选择器 —— 比单类多一级特指度。
+ *
+ * 为什么：文件后面还有一条同名 `.field-hint` 规则（带 margin 和 color），
+ * 同特指度下后写的赢，那条会把状态色覆盖成灰的。
+ * 加一级特指度后状态色稳赢，不用去动那条规则（它服务的是别的组件）。
+ */
+.field-hint.field-hint-checking {
+  color: var(--text-tertiary);
+}
+
+.field-hint.field-hint-ok {
   color: var(--success);
 }
 
-.field-hint-taken {
+.field-hint.field-hint-taken {
   color: var(--danger);
+  font-weight: 500;
 }
 
 .field input {
@@ -941,6 +956,13 @@
 .field input:focus {
   border-color: var(--brand);
   background: var(--bg-panel);
+}
+
+/* 校验不通过 —— 边框标红。用户名已被占用时用。 */
+.field input.is-invalid,
+.field input.is-invalid:focus {
+  border-color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .field input::placeholder {
