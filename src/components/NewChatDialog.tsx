@@ -124,7 +124,7 @@ export function NewChatDialog({
 
         {mode === 'group' && (
           <label className="field">
-            <span className="field-label">群名称</span>
+            <span className="field-label">群名称<span className="field-required">*</span></span>
             <input
               type="text"
               value={groupName}

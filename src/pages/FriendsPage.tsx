@@ -336,7 +336,7 @@ export function FriendsPage({ onStartChat }: FriendsPageProps) {
       >
         <form className="modal-form" onSubmit={handleSearch}>
           <label className="field">
-            <span className="field-label">对方用户名或手机号</span>
+            <span className="field-label">对方用户名或手机号<span className="field-required">*</span></span>
             <input
               type="text"
               value={addTarget}
@@ -382,7 +382,7 @@ export function FriendsPage({ onStartChat }: FriendsPageProps) {
 
           {addFound && (
             <label className="field">
-              <span className="field-label">验证消息（可选）</span>
+              <span className="field-label">验证消息</span>
               <input
                 type="text"
                 value={addMessage}

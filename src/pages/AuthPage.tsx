@@ -1,31 +1,128 @@
 /** 登录 / 注册页。 */
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../stores/auth'
 import { toast } from '../utils/toast'
 import { errorMessage } from '../utils/errors'
+import { checkUsernameAvailable, normalizeAvailable } from '../api/user'
+
+/** 用户名校验状态。idle = 没查过；checking = 在查；ok / taken = 结论。 */
+type UsernameState = 'idle' | 'checking' | 'ok' | 'taken'
+
+/** 输入停多久后发起校验（毫秒）。 */
+const CHECK_DEBOUNCE_MS = 500
 
 export function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [nickname, setNickname] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
+  const [nameState, setNameState] = useState<UsernameState>('idle')
   const login = useAuthStore((s) => s.login)
   const register = useAuthStore((s) => s.register)
   const loading = useAuthStore((s) => s.loading)
   const error = useAuthStore((s) => s.error)
   const clearError = useAuthStore((s) => s.clearError)
 
+  // 防抖定时器。存进 ref 是因为 onChange 闭包里不能读到「最新的」定时器 id。
+  const timerRef = useRef<number | null>(null)
+  // 请求序号。每次发请求记一个号，回来时只认当前号 ——
+  // 否则连续输入时后发的响应可能先到，早到的旧响应会覆盖新结论。
+  const seqRef = useRef(0)
+
   const switchMode = (next: 'login' | 'register') => {
     setMode(next)
     clearError()
+    // 登录页不校验用户名，切过去时把结论清掉，免得登录页上显示「用户名已被占用」。
+    setNameState('idle')
+    // 确认密码只在注册模式有 —— 切走时清掉，切回来时是空的。
+    setConfirmPassword('')
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  // 卸载时清掉未触发的定时器，别让 setState 打在卸载后的组件上。
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current)
+    }
+  }, [])
+
+  /**
+   * 查用户名是否被占用。
+   *
+   * 只认最后一次请求的结果 —— seqRef 记号，回来时号对不上就丢掉。
+   */
+  const runCheck = useCallback(async (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setNameState('idle')
+      return
+    }
+    const seq = ++seqRef.current
+    setNameState('checking')
+    try {
+      const reply = await checkUsernameAvailable(trimmed)
+      if (seq !== seqRef.current) return // 已经有更新的请求了，丢掉这个结果
+      setNameState(normalizeAvailable(reply) ? 'ok' : 'taken')
+    } catch (err) {
+      if (seq !== seqRef.current) return
+      setNameState('idle')
+      // 校验失败**不弹 toast**：限频（USER_RATE_LIMITED）之类的问题不该打扰用户，
+      // 真正提交时后端会再拦一次，那次才值得提示。
+      void err
+    }
+  }, [])
+
+  /** 输入时防抖校验。 */
+  const scheduleCheck = useCallback(
+    (name: string) => {
+      if (timerRef.current) window.clearTimeout(timerRef.current)
+      timerRef.current = window.setTimeout(() => {
+        timerRef.current = null
+        void runCheck(name)
+      }, CHECK_DEBOUNCE_MS)
+    },
+    [runCheck],
+  )
+
+  const handleUsernameChange = (v: string) => {
+    setUsername(v)
+    // 改了内容，上一次的结论就作废了 —— 免得拿旧结论提示新名字。
+    setNameState('idle')
+    if (mode === 'register') scheduleCheck(v)
+  }
+
+  /** 失焦时立即查一次，并取消还没触发的防抖 —— 免得查两遍。 */
+  const handleUsernameBlur = () => {
+    if (mode !== 'register') return
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    void runCheck(username)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!username.trim() || !password) {
       toast('请填写用户名和密码', 'error')
+      return
+    }
+    if (mode === 'register' && nameState === 'taken') {
+      toast('这个用户名已被占用，换一个吧', 'error')
+      return
+    }
+    if (mode === 'register' && !confirmPassword) {
+      toast('请再次输入密码', 'error')
+      return
+    }
+    if (mode === 'register' && password !== confirmPassword) {
+      toast('两次输入的密码不一致', 'error')
       return
     }
     try {
@@ -54,21 +151,29 @@ export function AuthPage() {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label className="field">
-            <span className="field-label">用户名</span>
+            <span className="field-label">用户名<span className="field-required">*</span></span>
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => handleUsernameChange(e.target.value)}
+              onBlur={handleUsernameBlur}
               placeholder="请输入用户名"
               autoComplete="username"
               autoFocus
             />
+            {mode === 'register' && nameState !== 'idle' && (
+              <span className={`field-hint field-hint-${nameState}`}>
+                {nameState === 'checking' && '检查中…'}
+                {nameState === 'ok' && '用户名可用'}
+                {nameState === 'taken' && '该用户名已被占用'}
+              </span>
+            )}
           </label>
 
           {mode === 'register' && (
             <>
               <label className="field">
-                <span className="field-label">昵称（可选）</span>
+                <span className="field-label">昵称</span>
                 <input
                   type="text"
                   value={nickname}
@@ -77,7 +182,7 @@ export function AuthPage() {
                 />
               </label>
               <label className="field">
-                <span className="field-label">手机号（可选）</span>
+                <span className="field-label">手机号</span>
                 <input
                   type="tel"
                   value={phone}
@@ -88,7 +193,7 @@ export function AuthPage() {
                 />
               </label>
               <label className="field">
-                <span className="field-label">邮箱（可选）</span>
+                <span className="field-label">邮箱</span>
                 <input
                   type="email"
                   value={email}
@@ -100,7 +205,7 @@ export function AuthPage() {
           )}
 
           <label className="field">
-            <span className="field-label">密码</span>
+            <span className="field-label">密码<span className="field-required">*</span></span>
             <input
               type="password"
               value={password}
@@ -109,6 +214,22 @@ export function AuthPage() {
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
           </label>
+
+          {mode === 'register' && (
+            <label className="field">
+              <span className="field-label">确认密码<span className="field-required">*</span></span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="再输入一次密码"
+                autoComplete="new-password"
+              />
+              {confirmPassword && confirmPassword !== password && (
+                <span className="field-hint field-hint-taken">两次输入的密码不一致</span>
+              )}
+            </label>
+          )}
 
           {error && <p className="auth-error">{error}</p>}
 

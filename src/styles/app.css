@@ -902,6 +902,30 @@
   color: var(--text-secondary);
 }
 
+/* 必填标记。星号紧跟文字，可选字段不标 —— 标了「（可选）」反而更吵。 */
+.field-required {
+  margin-left: 2px;
+  color: var(--danger);
+}
+
+/* 输入框下方的提示。占位与提示分两行，不挤占输入框。 */
+.field-hint {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.field-hint-checking {
+  color: var(--text-tertiary);
+}
+
+.field-hint-ok {
+  color: var(--success);
+}
+
+.field-hint-taken {
+  color: var(--danger);
+}
+
 .field input {
   height: 38px;
   padding: 0 12px;

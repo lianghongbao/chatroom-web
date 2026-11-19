@@ -286,7 +286,7 @@ export function ConversationDetails({
         }
       >
         <label className="field">
-          <span className="field-label">成员 ID</span>
+          <span className="field-label">成员 ID<span className="field-required">*</span></span>
           <input
             type="text"
             value={addTarget}
@@ -314,7 +314,7 @@ export function ConversationDetails({
         }
       >
         <label className="field">
-          <span className="field-label">新群主 ID</span>
+          <span className="field-label">新群主 ID<span className="field-required">*</span></span>
           <input
             type="text"
             value={transferTarget}

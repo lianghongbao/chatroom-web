@@ -55,6 +55,36 @@ export async function login(username: string, password: string): Promise<LoginRe
   return reply
 }
 
+/**
+ * 查用户名是否可注册。
+ *
+ * 注册页「失焦就校验重复」用。返回 true 表示没人占用。
+ *
+ * 不区分大小写 —— 后端 username 存库时已小写化。
+ *
+ * **返回的是快照，不是承诺**：到真正提交注册时可能被别人抢走，
+ * 那种情况后端会返 USER_ALREADY_EXISTS，前端照样要处理这个错误。
+ *
+ * 限频复用注册桶，所以连续校验会把注册额度提前耗光 ——
+ * 后端返 USER_RATE_LIMITED 时前端不该当成「用户名有问题」。
+ */
+export function checkUsernameAvailable(username: string): Promise<{ available: boolean }> {
+  return get<{ available: boolean }>('user', '/check/username', { username })
+}
+
+/**
+ * 归一化 available。
+ *
+ * 契约里它是 optional bool，但 JSON 里理论上仍可能缺字段 ——
+ * 缺了就当「不可用」，绝不当「可用」。
+ *
+ * **不能反向**：把 undefined 当 false 是安全的（不让人注册），
+ * 当 true 则会把已被占用的用户名放过去。
+ */
+export function normalizeAvailable(reply: { available?: boolean } | null): boolean {
+  return reply?.available === true
+}
+
 /** 登出：access 进黑名单 + refresh 删除。无论后端成败都会清本地 token。 */
 export async function logout(refreshToken: string): Promise<void> {
   try {

@@ -476,7 +476,7 @@ export function ProfilePage() {
       >
         <form className="modal-form" onSubmit={handleChangePassword}>
           <label className="field">
-            <span className="field-label">当前密码</span>
+            <span className="field-label">当前密码<span className="field-required">*</span></span>
             <input
               type="password"
               value={oldPassword}
@@ -485,7 +485,7 @@ export function ProfilePage() {
             />
           </label>
           <label className="field">
-            <span className="field-label">新密码</span>
+            <span className="field-label">新密码<span className="field-required">*</span></span>
             <input
               type="password"
               value={newPassword}
@@ -494,7 +494,7 @@ export function ProfilePage() {
             />
           </label>
           <label className="field">
-            <span className="field-label">确认新密码</span>
+            <span className="field-label">确认新密码<span className="field-required">*</span></span>
             <input
               type="password"
               value={confirmPassword}
