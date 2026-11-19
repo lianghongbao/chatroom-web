@@ -943,15 +943,9 @@
  * 为什么：文件后面还有一条同名 `.field-hint` 规则（带 margin 和 color），
  * 同特指度下后写的赢，那条会把状态色覆盖成灰的。
  * 加一级特指度后状态色稳赢，不用去动那条规则（它服务的是别的组件）。
+ *
+ * 只有 taken 一种状态色 —— 「用户名可用」这种成功反馈不显示。
  */
-.field-hint.field-hint-checking {
-  color: var(--text-tertiary);
-}
-
-.field-hint.field-hint-ok {
-  color: var(--success);
-}
-
 .field-hint.field-hint-taken {
   color: var(--danger);
   font-weight: 500;

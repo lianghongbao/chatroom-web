@@ -5,7 +5,14 @@ import { toast } from '../utils/toast'
 import { errorMessage } from '../utils/errors'
 import { checkUsernameAvailable, normalizeAvailable } from '../api/user'
 
-/** 用户名校验状态。idle = 没查过；checking = 在查；ok / taken = 结论。 */
+/**
+ * 用户名校验状态。
+ *
+ * idle = 没查过；checking = 在查；ok = 没人占用；taken = 已被占用。
+ *
+ * ok 虽然不显示任何提示，但状态还是要留着 —— 提交时用它判断
+ * 「已知被占用」直接拦掉，不用再发一次请求。
+ */
 type UsernameState = 'idle' | 'checking' | 'ok' | 'taken'
 
 /** 输入停多久后发起校验（毫秒）。 */
@@ -221,8 +228,12 @@ export function AuthPage() {
         <form className="auth-form" onSubmit={handleSubmit}>
           <label className="field">
             <span className="field-head">
-              <span className="field-label">用户名<span className="field-required">*</span></span>
-              {mode === 'register' && !fieldErrors.username && nameState === 'idle' && (
+              {/* 星号只标注册表单 —— 登录时两个字段都必填，标了等于没标。 */}
+              <span className="field-label">
+                用户名
+                {mode === 'register' && <span className="field-required">*</span>}
+              </span>
+              {mode === 'register' && !fieldErrors.username && nameState !== 'taken' && (
                 <span className="field-note">2–{MAX_USERNAME_LENGTH} 个字符</span>
               )}
             </span>
@@ -242,15 +253,15 @@ export function AuthPage() {
                   : undefined
               }
             />
+            {/*
+              只在出错时提示 —— 「用户名可用」「检查中…」这种成功反馈不显示。
+              用户只关心「有没有问题」，可用是默认状态，不必特意告诉他。
+              */}
             {mode === 'register' &&
               (fieldErrors.username ? (
                 <span className="field-hint field-hint-taken">{fieldErrors.username}</span>
-              ) : nameState !== 'idle' ? (
-                <span className={`field-hint field-hint-${nameState}`}>
-                  {nameState === 'checking' && '检查中…'}
-                  {nameState === 'ok' && '用户名可用'}
-                  {nameState === 'taken' && '该用户名已被占用'}
-                </span>
+              ) : nameState === 'taken' ? (
+                <span className="field-hint field-hint-taken">该用户名已被占用</span>
               ) : null)}
           </label>
 
@@ -311,7 +322,10 @@ export function AuthPage() {
 
           <label className="field">
             <span className="field-head">
-              <span className="field-label">密码<span className="field-required">*</span></span>
+              <span className="field-label">
+                密码
+                {mode === 'register' && <span className="field-required">*</span>}
+              </span>
               {mode === 'register' && !fieldErrors.password && (
                 <span className="field-note">至少 {MIN_PASSWORD_LENGTH} 个字符</span>
               )}
