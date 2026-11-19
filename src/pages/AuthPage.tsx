@@ -19,6 +19,41 @@ const MAX_USERNAME_LENGTH = 36
 const MAX_NICKNAME_LENGTH = 64
 const MIN_PASSWORD_LENGTH = 6
 
+/** 手机号长度（中国大陆 11 位）。 */
+const PHONE_LENGTH = 11
+
+/**
+ * 校验注册表单。返回第一条错误信息，全对返 null。
+ *
+ * 跟后端 biz 层的 validateUsername / validatePassword / validatePhone 对齐 ——
+ * 前端先拦一道是为了即时反馈，后端那道才是权威（前端能改）。
+ *
+ * 只在注册模式校验：登录时密码规则由后端判定（老账号可能用老规则注册的）。
+ */
+function validateRegister(
+  username: string,
+  password: string,
+  confirmPassword: string,
+  nickname: string,
+  phone: string,
+): string | null {
+  const name = username.trim()
+  if (!name) return '请填写用户名'
+  if (name.length < 2) return '用户名至少 2 个字符'
+  if (name.length > MAX_USERNAME_LENGTH) return `用户名最多 ${MAX_USERNAME_LENGTH} 个字符`
+  if (!password) return '请填写密码'
+  if (password.length < MIN_PASSWORD_LENGTH) return `密码至少 ${MIN_PASSWORD_LENGTH} 个字符`
+  if (password !== confirmPassword) return '两次输入的密码不一致'
+  if (nickname.trim().length > MAX_NICKNAME_LENGTH) {
+    return `昵称最多 ${MAX_NICKNAME_LENGTH} 个字符`
+  }
+  // 手机号留空 = 不填，非空必须是 11 位。后端只查长度不查格式，
+  // 但前端拦一道纯数字能挡掉大部分手滑。
+  const p = phone.trim()
+  if (p && !/^\d{11}$/.test(p)) return '手机号是 11 位数字'
+  return null
+}
+
 export function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
@@ -28,6 +63,9 @@ export function AuthPage() {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [nameState, setNameState] = useState<UsernameState>('idle')
+  // 各字段的即时错误。key 是字段名，值是错误文案。
+  // 只在 blur 或提交后出现 —— 边打字边报错太吵。
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const login = useAuthStore((s) => s.login)
   const register = useAuthStore((s) => s.register)
   const loading = useAuthStore((s) => s.loading)
@@ -47,6 +85,8 @@ export function AuthPage() {
     setNameState('idle')
     // 确认密码只在注册模式有 —— 切走时清掉，切回来时是空的。
     setConfirmPassword('')
+    // 校验错误也是注册模式专属的。
+    setFieldErrors({})
     if (timerRef.current) {
       window.clearTimeout(timerRef.current)
       timerRef.current = null
@@ -103,12 +143,21 @@ export function AuthPage() {
     setUsername(v)
     // 改了内容，上一次的结论就作废了 —— 免得拿旧结论提示新名字。
     setNameState('idle')
+    // 长度错误当场清掉 —— 用户正在改，再挂着旧错误是干扰。
+    setFieldErrors((prev) => (prev.username ? { ...prev, username: '' } : prev))
     if (mode === 'register') scheduleCheck(v)
   }
 
   /** 失焦时立即查一次，并取消还没触发的防抖 —— 免得查两遍。 */
   const handleUsernameBlur = () => {
     if (mode !== 'register') return
+    // 长度不对就别查了 —— 查了也是白查（后端会拒）。
+    const name = username.trim()
+    if (name.length < 2) {
+      setFieldErrors((prev) => ({ ...prev, username: '用户名至少 2 个字符' }))
+      return
+    }
+    setFieldErrors((prev) => ({ ...prev, username: '' }))
     if (timerRef.current) {
       window.clearTimeout(timerRef.current)
       timerRef.current = null
@@ -116,22 +165,33 @@ export function AuthPage() {
     void runCheck(username)
   }
 
+  /**
+   * 失焦时校验单个字段。
+   *
+   * field 是字段名，value 是该字段的值，check 是这条规则的具体判据。
+   * 判据不过就记一条错误，通过就清掉 —— 让错误跟着输入实时消失。
+   */
+  const validateField = (field: string, value: string, check: (v: string) => string | null) => {
+    const msg = check(value)
+    setFieldErrors((prev) => ({ ...prev, [field]: msg ?? '' }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!username.trim() || !password) {
+    if (mode === 'register') {
+      // 前端先校验一轮 —— 逐条给出具体哪里不对，比后端返一个笼统的
+      // USER_INVALID_ARGUMENT 好用。后端那道仍然照常跑，是权威。
+      const msg = validateRegister(username, password, confirmPassword, nickname, phone)
+      if (msg) {
+        toast(msg, 'error')
+        return
+      }
+      if (nameState === 'taken') {
+        toast('这个用户名已被占用，换一个吧', 'error')
+        return
+      }
+    } else if (!username.trim() || !password) {
       toast('请填写用户名和密码', 'error')
-      return
-    }
-    if (mode === 'register' && nameState === 'taken') {
-      toast('这个用户名已被占用，换一个吧', 'error')
-      return
-    }
-    if (mode === 'register' && !confirmPassword) {
-      toast('请再次输入密码', 'error')
-      return
-    }
-    if (mode === 'register' && password !== confirmPassword) {
-      toast('两次输入的密码不一致', 'error')
       return
     }
     try {
@@ -160,7 +220,12 @@ export function AuthPage() {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label className="field">
-            <span className="field-label">用户名<span className="field-required">*</span></span>
+            <span className="field-head">
+              <span className="field-label">用户名<span className="field-required">*</span></span>
+              {mode === 'register' && !fieldErrors.username && nameState === 'idle' && (
+                <span className="field-note">2–{MAX_USERNAME_LENGTH} 个字符</span>
+              )}
+            </span>
             <input
               type="text"
               value={username}
@@ -171,23 +236,31 @@ export function AuthPage() {
               autoFocus
               maxLength={MAX_USERNAME_LENGTH}
               // 输入框本身也标红 —— 只在下面写一行红字不够醒目。
-              className={mode === 'register' && nameState === 'taken' ? 'is-invalid' : undefined}
+              className={
+                mode === 'register' && (nameState === 'taken' || fieldErrors.username)
+                  ? 'is-invalid'
+                  : undefined
+              }
             />
-            {mode === 'register' && nameState !== 'idle' ? (
-              <span className={`field-hint field-hint-${nameState}`}>
-                {nameState === 'checking' && '检查中…'}
-                {nameState === 'ok' && '用户名可用'}
-                {nameState === 'taken' && '该用户名已被占用'}
-              </span>
-            ) : (
-              <span className="field-note">2–{MAX_USERNAME_LENGTH} 个字符，全局唯一，不区分大小写</span>
-            )}
+            {mode === 'register' &&
+              (fieldErrors.username ? (
+                <span className="field-hint field-hint-taken">{fieldErrors.username}</span>
+              ) : nameState !== 'idle' ? (
+                <span className={`field-hint field-hint-${nameState}`}>
+                  {nameState === 'checking' && '检查中…'}
+                  {nameState === 'ok' && '用户名可用'}
+                  {nameState === 'taken' && '该用户名已被占用'}
+                </span>
+              ) : null)}
           </label>
 
           {mode === 'register' && (
             <>
               <label className="field">
-                <span className="field-label">昵称</span>
+                <span className="field-head">
+                  <span className="field-label">昵称</span>
+                  <span className="field-note">最多 {MAX_NICKNAME_LENGTH} 个字符</span>
+                </span>
                 <input
                   type="text"
                   value={nickname}
@@ -195,18 +268,34 @@ export function AuthPage() {
                   placeholder="留空则使用用户名"
                   maxLength={MAX_NICKNAME_LENGTH}
                 />
-                <span className="field-note">最多 {MAX_NICKNAME_LENGTH} 个字符，留空则使用用户名</span>
               </label>
               <label className="field">
-                <span className="field-label">手机号</span>
+                <span className="field-head">
+                  <span className="field-label">手机号</span>
+                  <span className="field-note">11 位数字</span>
+                </span>
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="11 位手机号，用于添加好友"
-                  maxLength={11}
+                  onChange={(e) => {
+                    setPhone(e.target.value)
+                    setFieldErrors((prev) => (prev.phone ? { ...prev, phone: '' } : prev))
+                  }}
+                  onBlur={() =>
+                    validateField('phone', phone, (v) => {
+                      const t = v.trim()
+                      if (!t) return null // 留空 = 不填
+                      return /^\d{11}$/.test(t) ? null : '手机号是 11 位数字'
+                    })
+                  }
+                  placeholder="11 位手机号"
+                  maxLength={PHONE_LENGTH}
                   inputMode="numeric"
+                  className={fieldErrors.phone ? 'is-invalid' : undefined}
                 />
+                {fieldErrors.phone && (
+                  <span className="field-hint field-hint-taken">{fieldErrors.phone}</span>
+                )}
               </label>
               <label className="field">
                 <span className="field-label">邮箱</span>
@@ -221,32 +310,52 @@ export function AuthPage() {
           )}
 
           <label className="field">
-            <span className="field-label">密码<span className="field-required">*</span></span>
+            <span className="field-head">
+              <span className="field-label">密码<span className="field-required">*</span></span>
+              {mode === 'register' && !fieldErrors.password && (
+                <span className="field-note">至少 {MIN_PASSWORD_LENGTH} 个字符</span>
+              )}
+            </span>
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setFieldErrors((prev) => (prev.password ? { ...prev, password: '' } : prev))
+              }}
+              onBlur={() => {
+                if (mode !== 'register') return
+                validateField('password', password, (v) =>
+                  v && v.length < MIN_PASSWORD_LENGTH ? `密码至少 ${MIN_PASSWORD_LENGTH} 个字符` : null,
+                )
+              }}
               placeholder="请输入密码"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              className={mode === 'register' && fieldErrors.password ? 'is-invalid' : undefined}
             />
-            {mode === 'register' && (
-              <span className="field-note">至少 {MIN_PASSWORD_LENGTH} 个字符</span>
+            {mode === 'register' && fieldErrors.password && (
+              <span className="field-hint field-hint-taken">{fieldErrors.password}</span>
             )}
           </label>
 
           {mode === 'register' && (
             <label className="field">
-              <span className="field-label">确认密码<span className="field-required">*</span></span>
+              <span className="field-head">
+                <span className="field-label">确认密码<span className="field-required">*</span></span>
+                {confirmPassword && confirmPassword !== password && (
+                  <span className="field-hint field-hint-taken">两次输入的密码不一致</span>
+                )}
+              </span>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="再输入一次密码"
                 autoComplete="new-password"
+                className={
+                  confirmPassword && confirmPassword !== password ? 'is-invalid' : undefined
+                }
               />
-              {confirmPassword && confirmPassword !== password && (
-                <span className="field-hint field-hint-taken">两次输入的密码不一致</span>
-              )}
             </label>
           )}
 

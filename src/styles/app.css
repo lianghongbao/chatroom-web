@@ -902,6 +902,20 @@
   color: var(--text-secondary);
 }
 
+/*
+ * 标签行：左边是标签，右边是备注/状态。
+ *
+ * 备注放在**同一行右边**而不是输入框下面 —— 每个字段多占一行竖向空间，
+ * 注册表单（有 6 个字段）就变得很高，得滚动才看得到提交按钮。
+ */
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 16px;
+}
+
 /* 必填标记。星号紧跟文字，可选字段不标 —— 标了「（可选）」反而更吵。 */
 .field-required {
   margin-left: 2px;
@@ -919,6 +933,8 @@
   font-size: 11px;
   line-height: 1.4;
   color: var(--text-tertiary);
+  /* 贴右边。flex 布局里不加这个的话，长备注会把标签挤到左边以外。 */
+  text-align: right;
 }
 
 /*
