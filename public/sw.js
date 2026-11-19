@@ -14,17 +14,38 @@
  *     真加载失败（比如 404）由页面侧的 img onError 通知这里删掉
  *   - Chromium 给每条 opaque 响应按 ~8MB 记账（防跨域体积泄漏），
  *     所以条数上限不能大 —— 见 MAX_ENTRIES
+ *
+ * **按用户分桶**：worker 自己不知道现在是谁登录的（它只看到图片请求），
+ * 由页面通过 postMessage 告知（见 'owner' 消息）。不同用户的图进不同的桶，
+ * 免得同一台机器上换个账号登录就能命中上一个账号的缓存。
  */
 
 // 缓存名前缀。页面侧（src/utils/imageCache.ts）按这个前缀找缓存。
 const CACHE_PREFIX = 'chatroom-img-'
-const CACHE_NAME = `${CACHE_PREFIX}v1`
+
+// 缓存桶的版本号。跟页面侧的 CACHE_VERSION 对齐 ——
+// 分桶是结构性改动，老的 v1 桶（全局一个）不能继续用。
+const CACHE_VERSION = 'v2'
 
 // 最多缓存多少张图。
 //
 // 上限按条数算而不是按字节 —— opaque 响应读不到真实大小。
 // 60 条 × ~8MB 记账 ≈ 480MB 配额占用，手机上还能接受。
 const MAX_ENTRIES = 60
+
+/**
+ * 当前登录用户的 uid —— 决定图片进哪个桶。
+ *
+ * 空串表示「没人登录」。这时进来的图片请求**不缓存**：
+ * 缓存是按人分的，没人时存进去算谁的？存进一个匿名桶的话，
+ * 下一个人登录就会捡到这些图 —— 那正是分桶要避免的事。
+ */
+let currentOwner = ''
+
+/** 某用户的桶名。跟页面侧的 cacheNameFor 一致。 */
+function cacheNameFor(owner) {
+  return `${CACHE_PREFIX}${CACHE_VERSION}-${owner}`
+}
 
 self.addEventListener('install', (event) => {
   // 装完立刻接管 —— 不用等用户下次刷新才开始缓存。
@@ -35,10 +56,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       // 旧版本缓存删掉 —— 改了缓存逻辑后老数据格式对不上。
+      //
+      // v1 是「全局一个桶」的结构，跟现在的按用户分桶不兼容，
+      // 里面的图属于谁已经分不清了，直接清掉。
       const names = await caches.keys()
       await Promise.all(
         names
-          .filter((n) => n.startsWith(CACHE_PREFIX) && n !== CACHE_NAME)
+          .filter((n) => n.startsWith(CACHE_PREFIX) && !n.startsWith(`${CACHE_PREFIX}${CACHE_VERSION}-`))
           .map((n) => caches.delete(n)),
       )
       await self.clients.claim()
@@ -55,11 +79,22 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(serveImage(request))
 })
 
-// 页面通知：「这张图加载失败了，从缓存里删掉」。
+// 页面发来的消息。
 self.addEventListener('message', (event) => {
   const data = event.data
-  if (!data || data.type !== 'evict') return
-  event.waitUntil(evict(data.url))
+  if (!data) return
+
+  // 页面告知「现在是谁登录的」—— 换账号时切桶。
+  if (data.type === 'owner') {
+    currentOwner = typeof data.userId === 'string' ? data.userId : ''
+    event.waitUntil(Promise.resolve())
+    return
+  }
+
+  // 页面通知：「这张图加载失败了，从缓存里删掉」。
+  if (data.type === 'evict') {
+    event.waitUntil(evict(data.url))
+  }
 })
 
 /**
@@ -69,7 +104,13 @@ self.addEventListener('message', (event) => {
  * 没必要每次都回源校验一遍。
  */
 async function serveImage(request) {
-  const cache = await caches.open(CACHE_NAME)
+  // 没人登录 —— 直接放行，不进缓存。
+  //
+  // 这样「当前用户桶」里的图就一定属于当前用户：
+  // 登出后再打开聊天页看到的老图不会被算到新人头上。
+  if (!currentOwner) return fetch(request)
+
+  const cache = await caches.open(cacheNameFor(currentOwner))
   const cached = await cache.match(request)
   if (cached) return cached
 
@@ -122,6 +163,15 @@ async function trim(cache) {
 // 页面通知的清理：把一张坏图从缓存里删掉。
 async function evict(url) {
   if (!url) return
-  const cache = await caches.open(CACHE_NAME)
-  await cache.delete(url)
+  // 坏图可能存在**别的**用户的桶里 —— 比如换账号后才发现之前那张裂了。
+  // 所有桶都查一遍，别漏。
+  const names = await caches.keys()
+  await Promise.all(
+    names
+      .filter((name) => name.startsWith(`${CACHE_PREFIX}${CACHE_VERSION}-`))
+      .map(async (name) => {
+        const cache = await caches.open(name)
+        await cache.delete(url)
+      }),
+  )
 }

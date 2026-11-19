@@ -2,11 +2,29 @@
  * 聊天图片的本地缓存 —— 页面侧。
  *
  * 缓存本体在 Service Worker 里（public/sw.js），
- * 这一侧只做三件事：注册 worker、清缓存、通知 worker 删掉坏图。
+ * 这一侧只做三件事：注册 worker、告诉 worker 当前是谁、清缓存。
  */
 
 /** 缓存名前缀。跟 sw.js 里的 CACHE_PREFIX 对齐。 */
 const CACHE_PREFIX = 'chatroom-img-'
+
+/** 缓存桶的版本号。改了缓存结构就升版本，老桶会被 worker 清掉。 */
+const CACHE_VERSION = 'v2'
+
+/**
+ * 桶名 —— 按用户分桶。
+ *
+ * 为什么按用户分：缓存是**浏览器本地**的，不随账号走。
+ * 同一台机器上 A 账号登录时缓存的图，B 账号登录后照样能命中
+ * （Service Worker 是 cache-first，命中就不发网络请求）。
+ * 那是另一个账号的聊天记录里的图 —— 不该让 B 看见。
+ *
+ * 顺带解决了一个界面误导：「清理图片缓存（5）」里的 5 原本是
+ * **整个浏览器**的缓存总数，不是当前账号的。分桶后数字才对得上。
+ */
+function cacheNameFor(userId: string): string {
+  return `${CACHE_PREFIX}${CACHE_VERSION}-${userId}`
+}
 
 /**
  * 注册 Service Worker。
@@ -21,6 +39,24 @@ export function registerImageCache(): void {
       // 忽略：没有 Service Worker 也能正常聊天。
     })
   })
+}
+
+/**
+ * 把当前登录用户告诉 Service Worker。
+ *
+ * worker 不知道「现在是谁登录的」—— 它只看到图片请求。
+ * 页面这边知道，所以由页面主动告知，worker 据此选桶。
+ *
+ * 登出 / 换账号时都要调（传空串表示「没人登录」）：
+ * 不换的话，上一个用户的图片请求会被存进新用户的桶里。
+ */
+export function syncImageCacheOwner(userId: string | null | undefined): void {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+  navigator.serviceWorker.ready
+    .then((registration) => registration.active?.postMessage({ type: 'owner', userId: userId ?? '' }))
+    .catch(() => {
+      // worker 没起来 —— 没有缓存可管，不用管。
+    })
 }
 
 /**
@@ -39,24 +75,27 @@ export function evictImage(url: string): void {
     })
 }
 
-/** 本地缓存里现在有几张图。 */
-export async function imageCacheCount(): Promise<number> {
+/**
+ * 本地缓存里现在有几张图 —— **只算这个用户自己的**。
+ *
+ * userId 是当前登录用户的 uid；没登录传空 —— 没有用户就没有桶，
+ * 返回 0。
+ */
+export async function imageCacheCount(userId: string | null | undefined): Promise<number> {
   if (typeof window === 'undefined' || !('caches' in window)) return 0
-  const names = await caches.keys()
-  let count = 0
-  for (const name of names) {
-    if (!name.startsWith(CACHE_PREFIX)) continue
-    const cache = await caches.open(name)
-    count += (await cache.keys()).length
-  }
-  return count
+  if (!userId) return 0
+  const cache = await caches.open(cacheNameFor(userId))
+  return (await cache.keys()).length
 }
 
-/** 清空本地图片缓存。 */
-export async function clearImageCache(): Promise<void> {
+/**
+ * 清空本地图片缓存 —— **只清这个用户自己的**。
+ *
+ * 别的用户的缓存留着 —— 那是别人的聊天记录里的图，
+ * 当前用户没理由也不能替他清。
+ */
+export async function clearImageCache(userId: string | null | undefined): Promise<void> {
   if (typeof window === 'undefined' || !('caches' in window)) return
-  const names = await caches.keys()
-  await Promise.all(
-    names.filter((name) => name.startsWith(CACHE_PREFIX)).map((name) => caches.delete(name)),
-  )
+  if (!userId) return
+  await caches.delete(cacheNameFor(userId))
 }

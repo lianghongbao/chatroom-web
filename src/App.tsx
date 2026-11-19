@@ -10,6 +10,7 @@ import { UserProfileModal } from './components/UserProfileModal'
 import { NewChatDialog } from './components/NewChatDialog'
 import { Avatar } from './components/Avatar'
 import { toast } from './utils/toast'
+import { syncImageCacheOwner } from './utils/imageCache'
 import { useAuthStore, bootstrapAuth } from './stores/auth'
 import { useConversationStore } from './stores/conversation'
 import { attachMessageStream } from './stores/message'
@@ -43,6 +44,14 @@ export default function App() {
   useEffect(() => {
     bootstrapAuth()
   }, [])
+
+  // 告诉 Service Worker 现在是谁登录的 —— 图片缓存按用户分桶。
+  //
+  // 放在 App 这一个地方，是因为登录、登出、换账号三种情况都会改 user.id，
+  // 依赖 user.id 一变就重发，漏不掉。
+  useEffect(() => {
+    syncImageCacheOwner(user?.id ?? null)
+  }, [user?.id])
 
   // 订阅 WS 消息流
   useEffect(() => {

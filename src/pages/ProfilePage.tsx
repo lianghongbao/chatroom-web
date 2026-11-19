@@ -54,13 +54,15 @@ export function ProfilePage() {
   const nickInputRef = useRef<HTMLInputElement>(null)
 
   // 进来时数一下缓存里有多少张图。
+  //
+  // 依赖 user.id —— 缓存按用户分桶，换账号后数字要跟着换。
   useEffect(() => {
-    imageCacheCount()
+    imageCacheCount(user?.id)
       .then(setCachedImages)
       .catch(() => {
         // 数不出来就不显示数字，不影响别的功能。
       })
-  }, [])
+  }, [user?.id])
 
   if (!user) return null
 
@@ -69,10 +71,12 @@ export function ProfilePage() {
    *
    * 缓存里是已经看过的聊天图片 —— 删了不影响聊天记录，
    * 只是下次再翻到那些图要重新下载一次。
+   *
+   * 只清当前账号自己的桶 —— 别的账号的图不该由我替他清。
    */
   const handleClearImageCache = async () => {
     try {
-      await clearImageCache()
+      await clearImageCache(user.id)
       setCachedImages(0)
       toast('图片缓存已清理', 'success')
     } catch {
